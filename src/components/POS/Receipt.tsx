@@ -3,7 +3,7 @@ import { Receipt as ReceiptType } from '@/types/pos';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { Printer, Download, Bluetooth } from 'lucide-react';
+import { Printer, Download, Bluetooth, ArrowLeft } from 'lucide-react';
 import { thermalPrinter } from '@/lib/thermal-printer';
 import { formatThermalReceipt, formatPrintReceipt } from '@/lib/receipt-formatter';
 import { toast } from 'sonner';
@@ -11,9 +11,10 @@ import { toast } from 'sonner';
 interface ReceiptProps {
   receipt: ReceiptType;
   formatPrice: (price: number) => string;
+  onBack?: () => void;
 }
 
-export const Receipt = ({ receipt, formatPrice }: ReceiptProps) => {
+export const Receipt = ({ receipt, formatPrice, onBack }: ReceiptProps) => {
   const formatDate = (date: Date) => {
     return new Intl.DateTimeFormat('id-ID', {
       year: 'numeric',
@@ -93,7 +94,16 @@ export const Receipt = ({ receipt, formatPrice }: ReceiptProps) => {
   };
 
   return (
-    <Card className="pos-card max-w-md mx-auto">
+    <div className="space-y-4">
+      {onBack && (
+        <div className="flex items-center gap-4">
+          <Button variant="outline" size="icon" onClick={onBack}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <h2 className="text-xl font-semibold">Struk Penjualan</h2>
+        </div>
+      )}
+      <Card className="pos-card max-w-md mx-auto">
       <CardHeader className="text-center pb-4">
         <h2 className="text-xl font-bold">Toko Anjar Fotocopy & ATK</h2>
         <p className="text-sm text-muted-foreground">
@@ -218,5 +228,6 @@ export const Receipt = ({ receipt, formatPrice }: ReceiptProps) => {
         </Button>
       </div>
     </Card>
+    </div>
   );
 };
