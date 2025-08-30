@@ -1,3 +1,5 @@
+import { MobileThermalPrinter, isMobile } from './mobile-thermal-printer';
+
 // Type declarations for Web Bluetooth API
 declare global {
   interface Navigator {
@@ -41,6 +43,11 @@ export class ThermalPrinter {
 
   async connect(): Promise<boolean> {
     try {
+      // If running on mobile, use mobile printing
+      if (isMobile()) {
+        return await MobileThermalPrinter.isAvailable();
+      }
+
       if (!navigator.bluetooth) {
         throw new Error('Bluetooth not supported');
       }
@@ -90,12 +97,17 @@ export class ThermalPrinter {
   }
 
   async print(text: string): Promise<boolean> {
-    if (!this.characteristic) {
-      const connected = await this.connect();
-      if (!connected) return false;
-    }
-
     try {
+      // If running on mobile, use mobile printing
+      if (isMobile()) {
+        await MobileThermalPrinter.printReceipt(text);
+        return true;
+      }
+
+      if (!this.characteristic) {
+        const connected = await this.connect();
+        if (!connected) return false;
+      }
       // ESC/POS commands for thermal printing
       const ESC = '\x1B';
       const GS = '\x1D';

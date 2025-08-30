@@ -10,12 +10,15 @@ import { StockManagement } from './StockManagement';
 import { ReceiptHistory } from './ReceiptHistory';
 import { ManualInvoice } from './ManualInvoice';
 import { ShoppingList } from './ShoppingList';
+import { MobilePrintingGuide } from '@/components/MobilePrintingGuide';
+import { MobileHeader } from '@/components/MobileHeader';
 import { usePOSContext } from '@/contexts/POSContext';
 import { Receipt as ReceiptType, Product } from '@/types/pos';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { isMobile } from '@/lib/mobile-thermal-printer';
 import { 
   Store, 
   Package, 
@@ -183,6 +186,9 @@ Profit: ${formatPrice(receipt.profit)}
 
   return (
     <div className="min-h-screen w-full bg-background">
+      {/* Mobile Header */}
+      <MobileHeader />
+      
       {/* Header */}
       <header className="border-b bg-card shadow-sm w-full">
         <div className="w-full px-2 sm:px-4 py-3 sm:py-4">
@@ -270,6 +276,11 @@ Profit: ${formatPrice(receipt.profit)}
           </TabsList>
 
           <TabsContent value="pos" className="space-y-2 sm:space-y-4 mt-2 sm:mt-4">
+            {/* Mobile Printing Guide */}
+            {isMobile() && (
+              <MobilePrintingGuide />
+            )}
+            
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-6">
               <div className="lg:col-span-2 space-y-2 sm:space-y-4">
                 <Card className="pos-card">
