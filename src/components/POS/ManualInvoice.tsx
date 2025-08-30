@@ -6,7 +6,6 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Plus, Trash2, Receipt as ReceiptIcon, CreditCard, Percent, Copy } from 'lucide-react';
 import { Receipt as ReceiptType } from '@/types/pos';
 import { toast } from 'sonner';
@@ -30,26 +29,20 @@ export const ManualInvoice = ({ onCreateInvoice, formatPrice, receipts }: Manual
   const [currentItem, setCurrentItem] = useState({
     name: '',
     quantity: 0,
-    unitPrice: 0
+    unitPrice: 0,
+    totalPrice: 0,
+    isPhotocopy: false
   });
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [discount, setDiscount] = useState(0);
   const [discountType, setDiscountType] = useState<'amount' | 'percent'>('amount');
 
-  // Photocopy specific state
-  const [photocopyItems, setPhotocopyItems] = useState<{ [key: string]: number }>({
-    'Fotocopy': 0,
-    'Fotocopy Bufalo': 0,
-    'Fotocopy Buku': 0,
-    'Fotocopy A3': 0,
-  });
-
-  const photocopyPrices: { [key: string]: number } = {
-    'Fotocopy': 300,
-    'Fotocopy Bufalo': 500,
-    'Fotocopy Buku': 400,
-    'Fotocopy A3': 1000,
-  };
+  const photocopyTypes = [
+    'Fotocopy',
+    'Fotocopy Bufalo', 
+    'Fotocopy Buku',
+    'Fotocopy A3'
+  ];
 
   const addItem = () => {
     if (!currentItem.name || currentItem.quantity <= 0) {
@@ -57,45 +50,53 @@ export const ManualInvoice = ({ onCreateInvoice, formatPrice, receipts }: Manual
       return;
     }
 
+    let finalPrice = 0;
+    let finalUnitPrice = 0;
+
+    if (currentItem.isPhotocopy) {
+      // For photocopy, use total price directly
+      if (currentItem.totalPrice <= 0) {
+        toast.error('Total harga fotocopy harus diisi!');
+        return;
+      }
+      finalPrice = currentItem.totalPrice;
+      finalUnitPrice = currentItem.totalPrice / currentItem.quantity;
+    } else {
+      // For regular items, use unit price
+      if (currentItem.unitPrice <= 0) {
+        toast.error('Harga satuan harus diisi!');
+        return;
+      }
+      finalUnitPrice = currentItem.unitPrice;
+      finalPrice = currentItem.quantity * currentItem.unitPrice;
+    }
+
     const newItem: ManualItem = {
       id: Date.now().toString(),
       name: currentItem.name,
       quantity: currentItem.quantity,
-      unitPrice: currentItem.unitPrice,
-      total: currentItem.quantity * currentItem.unitPrice
+      unitPrice: finalUnitPrice,
+      total: finalPrice
     };
 
     setItems(prev => [...prev, newItem]);
-    setCurrentItem({ name: '', quantity: 0, unitPrice: 0 });
+    setCurrentItem({ 
+      name: '', 
+      quantity: 0, 
+      unitPrice: 0, 
+      totalPrice: 0, 
+      isPhotocopy: false 
+    });
   };
 
-  const addPhotocopyItems = () => {
-    const newItems: ManualItem[] = [];
-    Object.entries(photocopyItems).forEach(([name, quantity]) => {
-      if (quantity > 0) {
-        newItems.push({
-          id: `${Date.now()}-${name}`,
-          name,
-          quantity,
-          unitPrice: photocopyPrices[name],
-          total: quantity * photocopyPrices[name]
-        });
-      }
-    });
-
-    if (newItems.length === 0) {
-      toast.error('Pilih minimal satu item fotocopy!');
-      return;
-    }
-
-    setItems(prev => [...prev, ...newItems]);
-    setPhotocopyItems({
-      'Fotocopy': 0,
-      'Fotocopy Bufalo': 0,
-      'Fotocopy Buku': 0,
-      'Fotocopy A3': 0,
-    });
-    toast.success(`${newItems.length} item fotocopy ditambahkan!`);
+  const selectPhotocopyType = (type: string) => {
+    setCurrentItem(prev => ({
+      ...prev,
+      name: type,
+      isPhotocopy: true,
+      unitPrice: 0,
+      totalPrice: 0
+    }));
   };
 
   const removeItem = (id: string) => {
@@ -166,7 +167,13 @@ export const ManualInvoice = ({ onCreateInvoice, formatPrice, receipts }: Manual
     
     // Reset form
     setItems([]);
-    setCurrentItem({ name: '', quantity: 0, unitPrice: 0 });
+    setCurrentItem({ 
+      name: '', 
+      quantity: 0, 
+      unitPrice: 0, 
+      totalPrice: 0, 
+      isPhotocopy: false 
+    });
     setDiscount(0);
     setPaymentMethod('cash');
     
@@ -174,52 +181,81 @@ export const ManualInvoice = ({ onCreateInvoice, formatPrice, receipts }: Manual
   };
 
   return (
-    <Tabs defaultValue="manual" className="w-full">
-      <TabsList className="mb-4">
-        <TabsTrigger value="manual" className="flex items-center gap-2">
-          <ReceiptIcon className="h-4 w-4" />
-          Manual
-        </TabsTrigger>
-        <TabsTrigger value="photocopy" className="flex items-center gap-2">
-          <Copy className="h-4 w-4" />
-          Fotocopy
-        </TabsTrigger>
-      </TabsList>
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Add Item Form */}
+      <div className="lg:col-span-2">
+        <Card className="pos-card">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ReceiptIcon className="h-5 w-5" />
+              Nota Manual - Input Barang
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Photocopy Quick Select */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <Copy className="w-4 h-4" />
+                Pilih Cepat Fotocopy:
+              </Label>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                {photocopyTypes.map((type) => (
+                  <Button
+                    key={type}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => selectPhotocopyType(type)}
+                    className="text-xs"
+                  >
+                    {type}
+                  </Button>
+                ))}
+              </div>
+            </div>
 
-      <TabsContent value="manual">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Add Item Form */}
-          <div className="lg:col-span-2">
-            <Card className="pos-card">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <ReceiptIcon className="h-5 w-5" />
-                  Nota Manual - Input Barang
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <div className="md:col-span-2">
-                    <Label htmlFor="itemName">Nama Barang</Label>
+            <Separator />
+
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="md:col-span-2">
+                <Label htmlFor="itemName">Nama Barang</Label>
+                <Input
+                  id="itemName"
+                  placeholder="Masukkan nama barang..."
+                  value={currentItem.name}
+                  onChange={(e) => setCurrentItem(prev => ({ 
+                    ...prev, 
+                    name: e.target.value,
+                    isPhotocopy: photocopyTypes.includes(e.target.value)
+                  }))}
+                  onKeyDown={(e) => e.key === 'Enter' && addItem()}
+                />
+              </div>
+              <div>
+                <Label htmlFor="quantity">Jumlah</Label>
+                <Input
+                  id="quantity"
+                  type="number"
+                  min="0"
+                  value={currentItem.quantity || ''}
+                  onChange={(e) => setCurrentItem(prev => ({ ...prev, quantity: Number(e.target.value) || 0 }))}
+                />
+              </div>
+              <div>
+                {currentItem.isPhotocopy ? (
+                  <>
+                    <Label htmlFor="totalPrice">Total Harga</Label>
                     <Input
-                      id="itemName"
-                      placeholder="Masukkan nama barang..."
-                      value={currentItem.name}
-                      onChange={(e) => setCurrentItem(prev => ({ ...prev, name: e.target.value }))}
-                      onKeyDown={(e) => e.key === 'Enter' && addItem()}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="quantity">Jumlah</Label>
-                    <Input
-                      id="quantity"
+                      id="totalPrice"
                       type="number"
                       min="0"
-                      value={currentItem.quantity || ''}
-                      onChange={(e) => setCurrentItem(prev => ({ ...prev, quantity: Number(e.target.value) || 0 }))}
+                      placeholder="0"
+                      value={currentItem.totalPrice || ''}
+                      onChange={(e) => setCurrentItem(prev => ({ ...prev, totalPrice: Number(e.target.value) || 0 }))}
+                      onKeyDown={(e) => e.key === 'Enter' && addItem()}
                     />
-                  </div>
-                  <div>
+                  </>
+                ) : (
+                  <>
                     <Label htmlFor="unitPrice">Harga Satuan</Label>
                     <Input
                       id="unitPrice"
@@ -230,372 +266,182 @@ export const ManualInvoice = ({ onCreateInvoice, formatPrice, receipts }: Manual
                       onChange={(e) => setCurrentItem(prev => ({ ...prev, unitPrice: Number(e.target.value) || 0 }))}
                       onKeyDown={(e) => e.key === 'Enter' && addItem()}
                     />
+                  </>
+                )}
+              </div>
+            </div>
+            
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-muted-foreground">
+                {currentItem.isPhotocopy ? (
+                  <>Total: {formatPrice(currentItem.totalPrice)}</>
+                ) : (
+                  <>Total: {formatPrice(currentItem.quantity * currentItem.unitPrice)}</>
+                )}
+                {currentItem.isPhotocopy && (
+                  <div className="text-xs text-primary">
+                    Mode Fotocopy - Input total harga langsung
                   </div>
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <div className="text-sm text-muted-foreground">
-                    Total: {formatPrice(currentItem.quantity * currentItem.unitPrice)}
-                  </div>
-                  <Button onClick={addItem} size="sm">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Tambah Item
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+                )}
+              </div>
+              <Button onClick={addItem} size="sm">
+                <Plus className="h-4 w-4 mr-2" />
+                Tambah Item
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
-            {/* Items List */}
-            {items.length > 0 && (
-              <Card className="pos-card mt-4">
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
-                    <span>Daftar Item</span>
-                    <Badge variant="secondary">{items.length} item</Badge>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3 max-h-64 overflow-y-auto">
-                    {items.map((item) => (
-                      <div key={item.id} className="flex items-center justify-between p-3 border rounded-lg">
-                        <div className="flex-1">
-                          <div className="font-medium">{item.name}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {formatPrice(item.unitPrice)} × {item.quantity}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="flex items-center gap-1">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => updateItemQuantity(item.id, item.quantity - 1)}
-                              className="h-6 w-6 p-0"
-                            >
-                              -
-                            </Button>
-                            <span className="text-sm w-8 text-center">{item.quantity}</span>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => updateItemQuantity(item.id, item.quantity + 1)}
-                              className="h-6 w-6 p-0"
-                            >
-                              +
-                            </Button>
-                          </div>
-                          <div className="font-semibold min-w-[80px] text-right">
-                            {formatPrice(item.total)}
-                          </div>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => removeItem(item.id)}
-                            className="h-6 w-6 p-0 text-destructive"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-
-          {/* Invoice Summary */}
-          <div>
-            <Card className="pos-card">
-              <CardHeader>
-                <CardTitle>Ringkasan Nota</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Metode Pembayaran</Label>
-                  <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="cash">Tunai</SelectItem>
-                      <SelectItem value="debit">Kartu Debit</SelectItem>
-                      <SelectItem value="credit">Kartu Kredit</SelectItem>
-                      <SelectItem value="qris">QRIS</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="flex items-center gap-2">
-                    <Percent className="w-4 h-4" />
-                    Diskon
-                  </Label>
-                  <div className="flex gap-2">
-                    <Select value={discountType} onValueChange={(value: 'amount' | 'percent') => setDiscountType(value)}>
-                      <SelectTrigger className="w-20">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="amount">Rp</SelectItem>
-                        <SelectItem value="percent">%</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Input
-                      type="number"
-                      placeholder="0"
-                      value={discount || ''}
-                      onChange={(e) => setDiscount(Number(e.target.value) || 0)}
-                      min="0"
-                      max={discountType === 'percent' ? 100 : subtotal}
-                    />
-                  </div>
-                </div>
-
-                <Separator />
-
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span>Subtotal:</span>
-                    <span>{formatPrice(subtotal)}</span>
-                  </div>
-                  {discountAmount > 0 && (
-                    <div className="flex justify-between text-destructive">
-                      <span>Diskon:</span>
-                      <span>-{formatPrice(discountAmount)}</span>
-                    </div>
-                  )}
-                  <Separator />
-                  <div className="flex justify-between text-lg font-bold">
-                    <span>Total:</span>
-                    <span className="text-primary">{formatPrice(total)}</span>
-                  </div>
-                </div>
-
-                <Button 
-                  className="w-full" 
-                  onClick={handleCreateInvoice}
-                  disabled={items.length === 0}
-                >
-                  <CreditCard className="w-4 h-4 mr-2" />
-                  Buat Nota Manual
-                </Button>
-
-                <div className="text-xs text-muted-foreground text-center">
-                  Nota manual akan tercatat di laporan penjualan hari ini
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </TabsContent>
-
-      <TabsContent value="photocopy">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Photocopy Form */}
-          <div className="lg:col-span-2">
-            <Card className="pos-card">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Copy className="h-5 w-5" />
-                  Nota Fotocopy
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {Object.entries(photocopyPrices).map(([name, price]) => (
-                  <div key={name} className="flex items-center justify-between p-4 border rounded-lg">
+        {/* Items List */}
+        {items.length > 0 && (
+          <Card className="pos-card mt-4">
+            <CardHeader>
+              <CardTitle className="flex items-center justify-between">
+                <span>Daftar Item</span>
+                <Badge variant="secondary">{items.length} item</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3 max-h-64 overflow-y-auto">
+                {items.map((item) => (
+                  <div key={item.id} className="flex items-center justify-between p-3 border rounded-lg">
                     <div className="flex-1">
-                      <div className="font-medium">{name}</div>
+                      <div className="font-medium flex items-center gap-2">
+                        {item.name}
+                        {photocopyTypes.includes(item.name) && (
+                          <Badge variant="secondary" className="text-xs">
+                            <Copy className="w-3 h-3 mr-1" />
+                            Fotocopy
+                          </Badge>
+                        )}
+                      </div>
                       <div className="text-sm text-muted-foreground">
-                        {formatPrice(price)} per lembar
+                        {formatPrice(item.unitPrice)} × {item.quantity}
                       </div>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
                       <div className="flex items-center gap-1">
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => setPhotocopyItems(prev => ({ 
-                            ...prev, 
-                            [name]: Math.max(0, prev[name] - 1) 
-                          }))}
-                          className="h-8 w-8 p-0"
+                          onClick={() => updateItemQuantity(item.id, item.quantity - 1)}
+                          className="h-6 w-6 p-0"
                         >
                           -
                         </Button>
-                        <span className="text-sm w-12 text-center">{photocopyItems[name]}</span>
+                        <span className="text-sm w-8 text-center">{item.quantity}</span>
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => setPhotocopyItems(prev => ({ 
-                            ...prev, 
-                            [name]: prev[name] + 1 
-                          }))}
-                          className="h-8 w-8 p-0"
+                          onClick={() => updateItemQuantity(item.id, item.quantity + 1)}
+                          className="h-6 w-6 p-0"
                         >
                           +
                         </Button>
                       </div>
                       <div className="font-semibold min-w-[80px] text-right">
-                        {formatPrice(photocopyItems[name] * price)}
+                        {formatPrice(item.total)}
                       </div>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => removeItem(item.id)}
+                        className="h-6 w-6 p-0 text-destructive"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
                     </div>
                   </div>
                 ))}
-                
-                <div className="flex justify-end">
-                  <Button onClick={addPhotocopyItems} size="sm">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Tambah ke Nota
-                  </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
+      {/* Invoice Summary */}
+      <div>
+        <Card className="pos-card">
+          <CardHeader>
+            <CardTitle>Ringkasan Nota</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label>Metode Pembayaran</Label>
+              <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cash">Tunai</SelectItem>
+                  <SelectItem value="debit">Kartu Debit</SelectItem>
+                  <SelectItem value="credit">Kartu Kredit</SelectItem>
+                  <SelectItem value="qris">QRIS</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <Percent className="w-4 h-4" />
+                Diskon
+              </Label>
+              <div className="flex gap-2">
+                <Select value={discountType} onValueChange={(value: 'amount' | 'percent') => setDiscountType(value)}>
+                  <SelectTrigger className="w-20">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="amount">Rp</SelectItem>
+                    <SelectItem value="percent">%</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Input
+                  type="number"
+                  placeholder="0"
+                  value={discount || ''}
+                  onChange={(e) => setDiscount(Number(e.target.value) || 0)}
+                  min="0"
+                  max={discountType === 'percent' ? 100 : subtotal}
+                />
+              </div>
+            </div>
+
+            <Separator />
+
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <span>Subtotal:</span>
+                <span>{formatPrice(subtotal)}</span>
+              </div>
+              {discountAmount > 0 && (
+                <div className="flex justify-between text-destructive">
+                  <span>Diskon:</span>
+                  <span>-{formatPrice(discountAmount)}</span>
                 </div>
-              </CardContent>
-            </Card>
+              )}
+              <Separator />
+              <div className="flex justify-between text-lg font-bold">
+                <span>Total:</span>
+                <span className="text-primary">{formatPrice(total)}</span>
+              </div>
+            </div>
 
-            {/* Items List */}
-            {items.length > 0 && (
-              <Card className="pos-card mt-4">
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
-                    <span>Daftar Item</span>
-                    <Badge variant="secondary">{items.length} item</Badge>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3 max-h-64 overflow-y-auto">
-                    {items.map((item) => (
-                      <div key={item.id} className="flex items-center justify-between p-3 border rounded-lg">
-                        <div className="flex-1">
-                          <div className="font-medium">{item.name}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {formatPrice(item.unitPrice)} × {item.quantity}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="flex items-center gap-1">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => updateItemQuantity(item.id, item.quantity - 1)}
-                              className="h-6 w-6 p-0"
-                            >
-                              -
-                            </Button>
-                            <span className="text-sm w-8 text-center">{item.quantity}</span>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => updateItemQuantity(item.id, item.quantity + 1)}
-                              className="h-6 w-6 p-0"
-                            >
-                              +
-                            </Button>
-                          </div>
-                          <div className="font-semibold min-w-[80px] text-right">
-                            {formatPrice(item.total)}
-                          </div>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => removeItem(item.id)}
-                            className="h-6 w-6 p-0 text-destructive"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
+            <Button 
+              className="w-full" 
+              onClick={handleCreateInvoice}
+              disabled={items.length === 0}
+            >
+              <CreditCard className="w-4 h-4 mr-2" />
+              Buat Nota Manual
+            </Button>
 
-          {/* Invoice Summary - Same as manual */}
-          <div>
-            <Card className="pos-card">
-              <CardHeader>
-                <CardTitle>Ringkasan Nota</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Metode Pembayaran</Label>
-                  <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="cash">Tunai</SelectItem>
-                      <SelectItem value="debit">Kartu Debit</SelectItem>
-                      <SelectItem value="credit">Kartu Kredit</SelectItem>
-                      <SelectItem value="qris">QRIS</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="flex items-center gap-2">
-                    <Percent className="w-4 h-4" />
-                    Diskon
-                  </Label>
-                  <div className="flex gap-2">
-                    <Select value={discountType} onValueChange={(value: 'amount' | 'percent') => setDiscountType(value)}>
-                      <SelectTrigger className="w-20">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="amount">Rp</SelectItem>
-                        <SelectItem value="percent">%</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Input
-                      type="number"
-                      placeholder="0"
-                      value={discount || ''}
-                      onChange={(e) => setDiscount(Number(e.target.value) || 0)}
-                      min="0"
-                      max={discountType === 'percent' ? 100 : subtotal}
-                    />
-                  </div>
-                </div>
-
-                <Separator />
-
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span>Subtotal:</span>
-                    <span>{formatPrice(subtotal)}</span>
-                  </div>
-                  {discountAmount > 0 && (
-                    <div className="flex justify-between text-destructive">
-                      <span>Diskon:</span>
-                      <span>-{formatPrice(discountAmount)}</span>
-                    </div>
-                  )}
-                  <Separator />
-                  <div className="flex justify-between text-lg font-bold">
-                    <span>Total:</span>
-                    <span className="text-primary">{formatPrice(total)}</span>
-                  </div>
-                </div>
-
-                <Button 
-                  className="w-full" 
-                  onClick={handleCreateInvoice}
-                  disabled={items.length === 0}
-                >
-                  <CreditCard className="w-4 h-4 mr-2" />
-                  Buat Nota Fotocopy
-                </Button>
-
-                <div className="text-xs text-muted-foreground text-center">
-                  Nota fotocopy akan tercatat di laporan penjualan hari ini
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </TabsContent>
-    </Tabs>
+            <div className="text-xs text-muted-foreground text-center">
+              Nota manual akan tercatat di laporan penjualan hari ini
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
   );
 };
