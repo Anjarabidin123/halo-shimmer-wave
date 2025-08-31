@@ -1,6 +1,6 @@
 import { Receipt as ReceiptType } from '@/types/pos';
 
-export const formatThermalReceipt = (receipt: ReceiptType, formatPrice: (price: number) => string): string => {
+export const formatThermalReceipt = (receipt: ReceiptType, formatPrice: (price: number) => string, paperWidth: number = 32): string => {
   const formatDate = (date: Date) => {
     return new Intl.DateTimeFormat('id-ID', {
       year: 'numeric',
@@ -11,62 +11,102 @@ export const formatThermalReceipt = (receipt: ReceiptType, formatPrice: (price: 
     }).format(date);
   };
 
-  // ESC/POS Commands
+  // ESC/POS Commands untuk thermal printer
   const ESC = '\x1B';
+  const GS = '\x1D';
+  const INIT = ESC + '@';  // Initialize printer
   const BOLD_ON = ESC + 'E\x01';
   const BOLD_OFF = ESC + 'E\x00';
   const CENTER = ESC + 'a\x01';
   const LEFT = ESC + 'a\x00';
-  const CUT = '\x1D' + 'V\x42\x00';
+  const RIGHT = ESC + 'a\x02';
+  const DOUBLE_HEIGHT = ESC + '!\x10';
+  const NORMAL_SIZE = ESC + '!\x00';
+  const CUT = GS + 'V\x42\x00';
+  const LINE_FEED = '\n';
   
-  // Format harga tanpa simbol currency karena kita tulis manual
+  // Format harga
   const formatAmount = (amount: number) => {
     return new Intl.NumberFormat('id-ID').format(amount);
   };
 
-  return `${ESC}@${CENTER}${BOLD_ON}================================${BOLD_OFF}
-${BOLD_ON}TOKO ANJAR FOTOCOPY & ATK${BOLD_OFF}
-${BOLD_ON}================================${BOLD_OFF}
-Jl. Raya Gajah - Dempet
-(Depan Koramil Gajah)
-Telp/WA: 0895630183347
-
-${BOLD_ON}================================${BOLD_OFF}
-${BOLD_ON}STRUK PENJUALAN${BOLD_OFF}
-${BOLD_ON}================================${BOLD_OFF}
-Invoice: ${BOLD_ON}${receipt.id}${BOLD_OFF}
-Tanggal: ${formatDate(receipt.timestamp)}
-${BOLD_ON}--------------------------------${BOLD_OFF}
-${LEFT}
-${receipt.items.map(item => {
-  const price = item.finalPrice || item.product.sellPrice;
-  const total = price * item.quantity;
-  const itemName = item.product.name;
-  const qtyPrice = `${item.quantity} x Rp ${formatAmount(price)}`;
-  const totalPrice = `Rp ${formatAmount(total)}`;
+  // Helper untuk membuat garis
+  const makeLine = (char: string = '=') => char.repeat(paperWidth);
+  const makeDashedLine = () => '-'.repeat(paperWidth);
   
-  // Untuk kertas kecil (32 karakter)
-  return `${itemName}
-${qtyPrice}
-${' '.repeat(Math.max(0, 32 - totalPrice.length))}${BOLD_ON}${totalPrice}${BOLD_OFF}`;
-}).join('\n\n')}
+  // Helper untuk text dengan padding
+  const padRight = (text: string, totalWidth: number) => {
+    return text + ' '.repeat(Math.max(0, totalWidth - text.length));
+  };
+  
+  const justifyText = (left: string, right: string, totalWidth: number) => {
+    const availableSpace = totalWidth - left.length - right.length;
+    return left + ' '.repeat(Math.max(1, availableSpace)) + right;
+  };
 
-${BOLD_ON}--------------------------------${BOLD_OFF}
-Subtotal: ${' '.repeat(Math.max(0, 15 - `Rp ${formatAmount(receipt.subtotal)}`.length))}${BOLD_ON}Rp ${formatAmount(receipt.subtotal)}${BOLD_OFF}${receipt.discount > 0 ? `
-Diskon: ${' '.repeat(Math.max(0, 17 - `Rp ${formatAmount(receipt.discount)}`.length))}${BOLD_ON}Rp ${formatAmount(receipt.discount)}${BOLD_OFF}` : ''}
-${BOLD_ON}--------------------------------${BOLD_OFF}
-${BOLD_ON}TOTAL: ${' '.repeat(Math.max(0, 18 - `Rp ${formatAmount(receipt.total)}`.length))}Rp ${formatAmount(receipt.total)}${BOLD_OFF}
+  // Header toko
+  let receipt_text = INIT + CENTER + DOUBLE_HEIGHT + BOLD_ON;
+  receipt_text += 'TOKO ANJAR' + LINE_FEED;
+  receipt_text += 'FOTOCOPY & ATK' + LINE_FEED;
+  receipt_text += NORMAL_SIZE + BOLD_OFF;
+  receipt_text += makeLine() + LINE_FEED;
+  receipt_text += 'Jl. Raya Gajah - Dempet' + LINE_FEED;
+  receipt_text += '(Depan Koramil Gajah)' + LINE_FEED;
+  receipt_text += 'Telp/WA: 0895630183347' + LINE_FEED;
+  receipt_text += makeLine() + LINE_FEED + LINE_FEED;
 
-Metode: ${BOLD_ON}${receipt.paymentMethod?.toUpperCase() || 'CASH'}${BOLD_OFF}
+  // Header struk
+  receipt_text += BOLD_ON + 'STRUK PENJUALAN' + BOLD_OFF + LINE_FEED;
+  receipt_text += makeLine() + LINE_FEED;
+  receipt_text += LEFT;
+  receipt_text += justifyText('Invoice:', receipt.id, paperWidth) + LINE_FEED;
+  receipt_text += justifyText('Tanggal:', formatDate(receipt.timestamp), paperWidth) + LINE_FEED;
+  receipt_text += makeDashedLine() + LINE_FEED;
 
-${CENTER}${BOLD_ON}================================${BOLD_OFF}
-${BOLD_ON}TERIMA KASIH ATAS${BOLD_OFF}
-${BOLD_ON}KUNJUNGAN ANDA!${BOLD_OFF}
+  // Items
+  receipt.items.forEach(item => {
+    const price = item.finalPrice || item.product.sellPrice;
+    const total = price * item.quantity;
+    const itemName = item.product.name;
     
-${BOLD_ON}Semoga Hari Anda Menyenangkan${BOLD_OFF}
-${BOLD_ON}================================${BOLD_OFF}
+    // Nama item (bold)
+    receipt_text += BOLD_ON + itemName + BOLD_OFF + LINE_FEED;
+    
+    // Qty x Price = Total
+    const qtyPrice = `${item.quantity} x Rp${formatAmount(price)}`;
+    const totalPrice = `Rp${formatAmount(total)}`;
+    receipt_text += justifyText(qtyPrice, totalPrice, paperWidth) + LINE_FEED;
+    receipt_text += LINE_FEED; // Extra space between items
+  });
 
-${CUT}`;
+  // Total section
+  receipt_text += makeDashedLine() + LINE_FEED;
+  receipt_text += justifyText('Subtotal:', `Rp${formatAmount(receipt.subtotal)}`, paperWidth) + LINE_FEED;
+  
+  if (receipt.discount > 0) {
+    receipt_text += justifyText('Diskon:', `Rp${formatAmount(receipt.discount)}`, paperWidth) + LINE_FEED;
+  }
+  
+  receipt_text += makeLine() + LINE_FEED;
+  receipt_text += BOLD_ON + justifyText('TOTAL:', `Rp${formatAmount(receipt.total)}`, paperWidth) + BOLD_OFF + LINE_FEED;
+  receipt_text += makeLine() + LINE_FEED + LINE_FEED;
+
+  // Payment method
+  receipt_text += justifyText('Metode:', (receipt.paymentMethod?.toUpperCase() || 'CASH'), paperWidth) + LINE_FEED + LINE_FEED;
+
+  // Footer
+  receipt_text += CENTER + BOLD_ON;
+  receipt_text += 'TERIMA KASIH' + LINE_FEED;
+  receipt_text += 'ATAS KUNJUNGAN ANDA!' + LINE_FEED + LINE_FEED;
+  receipt_text += BOLD_OFF;
+  receipt_text += 'Semoga Hari Anda' + LINE_FEED;
+  receipt_text += 'Menyenangkan' + LINE_FEED;
+  receipt_text += makeLine() + LINE_FEED + LINE_FEED + LINE_FEED;
+
+  // Cut paper
+  receipt_text += CUT;
+
+  return receipt_text;
 };
 
 export const formatPrintReceipt = (receipt: ReceiptType, formatPrice: (price: number) => string): string => {

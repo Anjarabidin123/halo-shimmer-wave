@@ -39,7 +39,9 @@ export const Receipt = ({ receipt, formatPrice, onBack }: ReceiptProps) => {
 
   const handleThermalPrint = async () => {
     try {
-      const thermalContent = formatThermalReceipt(receipt, formatPrice);
+      // Untuk kertas thermal 80mm (48 karakter) - ubah ke 32 untuk 58mm
+      const paperWidth = 48;
+      const thermalContent = formatThermalReceipt(receipt, formatPrice, paperWidth);
       const success = await thermalPrinter.print(thermalContent);
       
       if (success) {
