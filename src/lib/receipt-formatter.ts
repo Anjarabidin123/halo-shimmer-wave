@@ -129,148 +129,247 @@ export const formatPrintReceipt = (receipt: ReceiptType, formatPrice: (price: nu
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Struk Thermal</title>
+  <title>Struk Penjualan</title>
   <style>
     @page {
-      size: 80mm auto;
-      margin: 0;
+      size: A4;
+      margin: 20mm;
     }
     
     @media print {
       body {
         margin: 0;
-        padding: 5mm;
-        width: 70mm;
-        font-family: 'Courier New', monospace;
-        font-size: 10px;
-        line-height: 1.2;
+        padding: 0;
+        font-family: 'Arial', sans-serif;
+        font-size: 16px;
+        line-height: 1.6;
+        color: #000;
       }
       
-      .no-print {
-        display: none;
+      .container {
+        max-width: 600px;
+        margin: 0 auto;
+        padding: 40px;
       }
     }
     
     body {
-      font-family: 'Courier New', monospace;
-      font-size: 10px;
-      line-height: 1.2;
+      font-family: 'Arial', sans-serif;
+      font-size: 16px;
+      line-height: 1.6;
       margin: 0;
-      padding: 5mm;
-      width: 70mm;
+      padding: 20px;
       background: white;
+      color: #000;
     }
     
-    .center { text-align: center; }
-    .bold { font-weight: bold; }
-    .large { font-size: 12px; }
-    .small { font-size: 8px; }
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 40px;
+      border: 2px solid #000;
+    }
+    
+    .center { 
+      text-align: center; 
+      margin-bottom: 20px;
+    }
+    
+    .bold { 
+      font-weight: bold; 
+    }
+    
+    .header-title {
+      font-size: 28px;
+      font-weight: bold;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+    }
+    
+    .header-subtitle {
+      font-size: 24px;
+      font-weight: bold;
+      margin-bottom: 15px;
+    }
+    
+    .address {
+      font-size: 18px;
+      margin-bottom: 30px;
+    }
+    
+    .invoice-title {
+      font-size: 22px;
+      font-weight: bold;
+      margin: 30px 0 20px 0;
+    }
+    
+    .invoice-info {
+      font-size: 18px;
+      margin-bottom: 30px;
+    }
     
     .line { 
-      border-top: 1px dashed #000; 
-      margin: 3px 0; 
+      border-top: 2px solid #000; 
+      margin: 20px 0; 
+    }
+    
+    .dashed-line {
+      border-top: 2px dashed #000;
+      margin: 20px 0;
     }
     
     .flex {
       display: flex;
       justify-content: space-between;
-      margin-bottom: 2px;
+      margin-bottom: 10px;
+      font-size: 18px;
+    }
+    
+    .item-section {
+      margin: 30px 0;
     }
     
     .item-row {
-      margin-bottom: 4px;
+      margin-bottom: 20px;
+      padding: 10px 0;
+      border-bottom: 1px solid #ccc;
+    }
+    
+    .item-name {
+      font-size: 20px;
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+    
+    .item-details {
+      font-size: 18px;
+      color: #666;
+    }
+    
+    .item-total {
+      font-size: 20px;
+      font-weight: bold;
+      text-align: right;
     }
     
     .total-section {
-      border-top: 1px solid #000;
-      padding-top: 3px;
-      margin-top: 3px;
+      border-top: 3px solid #000;
+      padding-top: 20px;
+      margin-top: 30px;
+      font-size: 20px;
+    }
+    
+    .grand-total {
+      font-size: 26px;
+      font-weight: bold;
+      margin-top: 15px;
+      padding-top: 15px;
+      border-top: 2px solid #000;
+    }
+    
+    .footer {
+      margin-top: 40px;
+      font-size: 18px;
+    }
+    
+    .thank-you {
+      font-size: 22px;
+      font-weight: bold;
+      margin: 30px 0;
     }
   </style>
 </head>
 <body>
-  <div class="center bold large">
-    TOKO ANJAR<br>
-    FOTOCOPY & ATK
-  </div>
-  
-  <div class="line"></div>
-  
-  <div class="center small">
-    Jl. Raya Gajah - Dempet<br>
-    (Depan Koramil Gajah)<br>
-    Telp/WA: 0895630183347
-  </div>
-  
-  <div class="line"></div>
-  
-  <div class="center bold">
-    STRUK PENJUALAN
-  </div>
-  
-  <div class="flex small">
-    <span>Invoice:</span>
-    <span>${receipt.id}</span>
-  </div>
-  
-  <div class="flex small">
-    <span>Tanggal:</span>
-    <span>${formatDate(receipt.timestamp)}</span>
-  </div>
-  
-  <div class="line"></div>
-  
-  ${receipt.items.map(item => {
-    const price = item.finalPrice || item.product.sellPrice;
-    const total = price * item.quantity;
-    return `
-    <div class="item-row">
-      <div class="bold">${item.product.name}</div>
-      <div class="flex small">
-        <span>${item.quantity} x Rp${formatAmount(price)}</span>
-        <span class="bold">Rp${formatAmount(total)}</span>
+  <div class="container">
+    <div class="center">
+      <div class="header-title">TOKO ANJAR</div>
+      <div class="header-subtitle">FOTOCOPY & ATK</div>
+      
+      <div class="address">
+        Jl. Raya Gajah - Dempet<br>
+        (Depan Koramil Gajah)<br>
+        Telp/WA: 0895630183347
       </div>
     </div>
-    `;
-  }).join('')}
-  
-  <div class="line"></div>
-  
-  <div class="flex">
-    <span>Subtotal:</span>
-    <span>Rp${formatAmount(receipt.subtotal)}</span>
-  </div>
-  
-  ${receipt.discount > 0 ? `
-  <div class="flex">
-    <span>Diskon:</span>
-    <span>Rp${formatAmount(receipt.discount)}</span>
-  </div>
-  ` : ''}
-  
-  <div class="total-section">
-    <div class="flex bold large">
-      <span>TOTAL:</span>
-      <span>Rp${formatAmount(receipt.total)}</span>
+    
+    <div class="line"></div>
+    
+    <div class="center">
+      <div class="invoice-title">STRUK PENJUALAN</div>
+      
+      <div class="invoice-info">
+        <div class="flex">
+          <span>Invoice:</span>
+          <span class="bold">${receipt.id}</span>
+        </div>
+        
+        <div class="flex">
+          <span>Tanggal:</span>
+          <span class="bold">${formatDate(receipt.timestamp)}</span>
+        </div>
+      </div>
+    </div>
+    
+    <div class="dashed-line"></div>
+    
+    <div class="item-section">
+      ${receipt.items.map(item => {
+        const price = item.finalPrice || item.product.sellPrice;
+        const total = price * item.quantity;
+        return `
+        <div class="item-row">
+          <div class="item-name">${item.product.name}</div>
+          <div class="flex">
+            <div class="item-details">
+              ${item.quantity} x Rp ${formatAmount(price)}
+            </div>
+            <div class="item-total">
+              Rp ${formatAmount(total)}
+            </div>
+          </div>
+        </div>
+        `;
+      }).join('')}
+    </div>
+    
+    <div class="total-section">
+      <div class="flex">
+        <span>Subtotal:</span>
+        <span class="bold">Rp ${formatAmount(receipt.subtotal)}</span>
+      </div>
+      
+      ${receipt.discount > 0 ? `
+      <div class="flex" style="color: #dc2626;">
+        <span>Diskon:</span>
+        <span class="bold">-Rp ${formatAmount(receipt.discount)}</span>
+      </div>
+      ` : ''}
+      
+      <div class="grand-total">
+        <div class="flex">
+          <span>TOTAL:</span>
+          <span>Rp ${formatAmount(receipt.total)}</span>
+        </div>
+      </div>
+    </div>
+    
+    <div class="dashed-line"></div>
+    
+    <div class="footer">
+      <div class="flex">
+        <span>Metode Pembayaran:</span>
+        <span class="bold">${receipt.paymentMethod?.toUpperCase() || 'CASH'}</span>
+      </div>
+    </div>
+    
+    <div class="center thank-you">
+      TERIMA KASIH<br>
+      ATAS KUNJUNGAN ANDA!<br><br>
+      <div style="font-size: 20px;">
+        Semoga Hari Anda Menyenangkan
+      </div>
     </div>
   </div>
-  
-  <div class="line"></div>
-  
-  <div class="flex small">
-    <span>Metode:</span>
-    <span>${receipt.paymentMethod?.toUpperCase() || 'CASH'}</span>
-  </div>
-  
-  <div class="line"></div>
-  
-  <div class="center small">
-    TERIMA KASIH<br>
-    ATAS KUNJUNGAN ANDA!<br><br>
-    Semoga Hari Anda<br>
-    Menyenangkan
-  </div>
-  
 </body>
 </html>
     `;
