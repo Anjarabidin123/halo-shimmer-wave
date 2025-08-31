@@ -1,17 +1,25 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { Smartphone, Share, Printer, CheckCircle } from 'lucide-react';
+import { Smartphone, Share, Printer, CheckCircle, Globe, Copy } from 'lucide-react';
+import { getMobilePlatform } from '@/lib/mobile-thermal-printer';
 
 export const MobilePrintingGuide = () => {
+  const platform = getMobilePlatform();
+  const isWebMobile = platform === 'web-mobile';
+
   return (
     <Card className="pos-card">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Smartphone className="h-5 w-5 text-primary" />
+          {isWebMobile ? (
+            <Globe className="h-5 w-5 text-primary" />
+          ) : (
+            <Smartphone className="h-5 w-5 text-primary" />
+          )}
           Mode Mobile - Cetak Thermal
           <Badge variant="secondary" className="ml-2">
-            Mobile App
+            {isWebMobile ? 'Browser Mobile' : 'Native App'}
           </Badge>
         </CardTitle>
       </CardHeader>
@@ -19,14 +27,17 @@ export const MobilePrintingGuide = () => {
         <Alert>
           <Printer className="h-4 w-4" />
           <AlertDescription>
-            Anda sedang menggunakan aplikasi mobile. Fitur cetak akan terhubung dengan aplikasi printer thermal di HP Anda.
+            {isWebMobile 
+              ? 'Anda menggunakan browser mobile. Fitur cetak akan menggunakan Web Share API untuk terhubung dengan aplikasi printer thermal.'
+              : 'Anda sedang menggunakan aplikasi mobile. Fitur cetak akan terhubung dengan aplikasi printer thermal di HP Anda.'
+            }
           </AlertDescription>
         </Alert>
 
         <div className="space-y-3">
           <h4 className="font-semibold flex items-center gap-2">
-            <Share className="h-4 w-4" />
-            Cara Cetak di Mobile:
+            {isWebMobile ? <Share className="h-4 w-4" /> : <Share className="h-4 w-4" />}
+            Cara Cetak di {isWebMobile ? 'Browser Mobile' : 'Mobile App'}:
           </h4>
           
           <div className="space-y-2 text-sm">
@@ -41,7 +52,12 @@ export const MobilePrintingGuide = () => {
               <div className="flex-shrink-0 w-5 h-5 bg-primary/10 rounded-full flex items-center justify-center text-xs font-semibold text-primary">
                 2
               </div>
-              <span>Saat klik "Cetak", pilih aplikasi printer dari menu share</span>
+              <span>
+                {isWebMobile 
+                  ? 'Saat klik "Cetak", akan muncul menu share browser - pilih aplikasi printer'
+                  : 'Saat klik "Cetak", pilih aplikasi printer dari menu share'
+                }
+              </span>
             </div>
             
             <div className="flex items-start gap-2">
@@ -50,6 +66,17 @@ export const MobilePrintingGuide = () => {
               </div>
               <span>Aplikasi printer akan otomatis format dan cetak nota</span>
             </div>
+
+            {isWebMobile && (
+              <div className="flex items-start gap-2">
+                <div className="flex-shrink-0 w-5 h-5 bg-amber-100 rounded-full flex items-center justify-center text-xs font-semibold text-amber-600">
+                  <Copy className="h-3 w-3" />
+                </div>
+                <span className="text-amber-600">
+                  <strong>Fallback:</strong> Jika Web Share tidak tersedia, nota akan otomatis disalin ke clipboard untuk di-paste ke aplikasi printer
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -65,6 +92,14 @@ export const MobilePrintingGuide = () => {
             <div>• StarPRNT</div>
           </div>
         </div>
+
+        {isWebMobile && (
+          <div className="bg-blue-50 dark:bg-blue-950 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
+            <div className="text-sm text-blue-700 dark:text-blue-300">
+              <strong>💡 Tip:</strong> Untuk pengalaman terbaik, install sebagai PWA (Progressive Web App) atau gunakan aplikasi native dengan <code className="bg-blue-100 dark:bg-blue-900 px-1 rounded">npx cap run android</code>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
