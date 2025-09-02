@@ -4,9 +4,10 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Printer, Download, Bluetooth, ArrowLeft } from 'lucide-react';
-import { thermalPrinter } from '@/lib/thermal-printer';
-import { formatThermalReceipt, formatPrintReceipt } from '@/lib/receipt-formatter';
+import { hybridThermalPrinter } from '@/lib/hybrid-thermal-printer';
+import { formatThermalReceipt, formatPrintReceipt, formatMobileA4PrintReceipt } from '@/lib/receipt-formatter';
 import { toast } from 'sonner';
+import { BluetoothInstructions } from './BluetoothInstructions';
 
 interface ReceiptProps {
   receipt: ReceiptType;
@@ -39,16 +40,8 @@ export const Receipt = ({ receipt, formatPrice, onBack }: ReceiptProps) => {
 
   const handleThermalPrint = async () => {
     try {
-      // Untuk kertas thermal 80mm (48 karakter) - ubah ke 32 untuk 58mm
-      const paperWidth = 48;
-      const thermalContent = formatThermalReceipt(receipt, formatPrice, paperWidth);
-      const success = await thermalPrinter.print(thermalContent);
-      
-      if (success) {
-        toast.success('Nota berhasil dicetak!');
-      } else {
-        toast.error('Gagal mencetak nota. Pastikan printer terhubung.');
-      }
+      // Always use browser printing directly
+      handlePrint();
     } catch (error) {
       console.error('Print error:', error);
       toast.error('Terjadi kesalahan saat mencetak.');
@@ -57,15 +50,54 @@ export const Receipt = ({ receipt, formatPrice, onBack }: ReceiptProps) => {
 
   const handleConnectPrinter = async () => {
     try {
-      const connected = await thermalPrinter.connect();
+      const connected = await hybridThermalPrinter.connect();
       if (connected) {
-        toast.success('Printer bluetooth terhubung!');
+        toast.success(`Printer ${hybridThermalPrinter.getPlatformInfo()} terhubung!`);
       } else {
         toast.error('Gagal menghubungkan printer bluetooth.');
       }
     } catch (error) {
       console.error('Connection error:', error);
       toast.error('Terjadi kesalahan saat menghubungkan printer.');
+    }
+  };
+
+  const handleMobileA4Print = () => {
+    const printContent = formatMobileA4PrintReceipt(receipt, formatPrice);
+
+    const printWindow = window.open('', '_blank');
+    if (printWindow) {
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>Struk Penjualan - ${receipt.id}</title>
+            <style>
+              body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
+              @media print {
+                body { margin: 0; padding: 0; }
+                @page { 
+                  margin: 10mm;
+                  size: A4;
+                }
+              }
+            </style>
+          </head>
+          <body>
+            ${printContent}
+            <script>
+              window.onload = function() {
+                setTimeout(function() {
+                  window.print();
+                  setTimeout(function() {
+                    window.close();
+                  }, 1000);
+                }, 500);
+              };
+            </script>
+          </body>
+        </html>
+      `);
+      printWindow.document.close();
     }
   };
 
@@ -177,7 +209,9 @@ export const Receipt = ({ receipt, formatPrice, onBack }: ReceiptProps) => {
       </CardContent>
 
       <div className="p-4 space-y-2">
-        <div className="bg-muted/50 p-3 rounded-lg text-center text-sm text-muted-foreground mb-3">
+        <BluetoothInstructions />
+        
+        <div className="bg-muted/50 p-3 rounded-lg text-center text-sm text-muted-foreground mb-3 mt-3">
           Tekan <kbd className="bg-background px-2 py-1 rounded border">Enter</kbd> untuk print otomatis
         </div>
         
@@ -186,25 +220,16 @@ export const Receipt = ({ receipt, formatPrice, onBack }: ReceiptProps) => {
           onClick={handleThermalPrint}
         >
           <Printer className="w-4 h-4 mr-2" />
-          Print Thermal (Enter)
+          Cetak Nota (Enter)
         </Button>
-
+        
         <Button 
           variant="outline"
           className="w-full"
           onClick={handleConnectPrinter}
         >
           <Bluetooth className="w-4 h-4 mr-2" />
-          {thermalPrinter.isConnected() ? 'Printer Terhubung' : 'Hubungkan Bluetooth'}
-        </Button>
-        
-        <Button 
-          variant="outline"
-          className="w-full"
-          onClick={handlePrint}
-        >
-          <Printer className="w-4 h-4 mr-2" />
-          Print Browser
+          Sambungkan Bluetooth
         </Button>
         
         <Button 

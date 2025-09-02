@@ -1,6 +1,6 @@
 import { Receipt as ReceiptType } from '@/types/pos';
 
-export const formatThermalReceipt = (receipt: ReceiptType, formatPrice: (price: number) => string, paperWidth: number = 32): string => {
+export const formatThermalReceipt = (receipt: ReceiptType, formatPrice: (price: number) => string): string => {
   const formatDate = (date: Date) => {
     return new Intl.DateTimeFormat('id-ID', {
       year: 'numeric',
@@ -11,366 +11,291 @@ export const formatThermalReceipt = (receipt: ReceiptType, formatPrice: (price: 
     }).format(date);
   };
 
-  // ESC/POS Commands untuk thermal printer
+  // ESC/POS Commands
   const ESC = '\x1B';
-  const GS = '\x1D';
-  const INIT = ESC + '@';  // Initialize printer
   const BOLD_ON = ESC + 'E\x01';
   const BOLD_OFF = ESC + 'E\x00';
   const CENTER = ESC + 'a\x01';
   const LEFT = ESC + 'a\x00';
-  const RIGHT = ESC + 'a\x02';
-  const DOUBLE_HEIGHT = ESC + '!\x10';
-  const NORMAL_SIZE = ESC + '!\x00';
-  const CUT = GS + 'V\x42\x00';
-  const LINE_FEED = '\n';
+  const CUT = '\x1D' + 'V\x42\x00';
   
-  // Format harga
+  // Format harga tanpa simbol currency karena kita tulis manual
   const formatAmount = (amount: number) => {
     return new Intl.NumberFormat('id-ID').format(amount);
   };
 
-  // Helper untuk membuat garis
-  const makeLine = (char: string = '=') => char.repeat(paperWidth);
-  const makeDashedLine = () => '-'.repeat(paperWidth);
+  return `${ESC}@${CENTER}${BOLD_ON}================================${BOLD_OFF}
+${BOLD_ON}TOKO ANJAR FOTOCOPY & ATK${BOLD_OFF}
+${BOLD_ON}================================${BOLD_OFF}
+Jl. Raya Gajah - Dempet
+(Depan Koramil Gajah)
+Telp/WA: 0895630183347
+
+${BOLD_ON}================================${BOLD_OFF}
+${BOLD_ON}STRUK PENJUALAN${BOLD_OFF}
+${BOLD_ON}================================${BOLD_OFF}
+Invoice: ${BOLD_ON}${receipt.id}${BOLD_OFF}
+Tanggal: ${formatDate(receipt.timestamp)}
+${BOLD_ON}--------------------------------${BOLD_OFF}
+${LEFT}
+${receipt.items.map(item => {
+  const price = item.finalPrice || item.product.sellPrice;
+  const total = price * item.quantity;
+  const itemName = item.product.name;
+  const qtyPrice = `${item.quantity} x Rp ${formatAmount(price)}`;
+  const totalPrice = `Rp ${formatAmount(total)}`;
   
-  // Helper untuk text dengan padding
-  const padRight = (text: string, totalWidth: number) => {
-    return text + ' '.repeat(Math.max(0, totalWidth - text.length));
-  };
-  
-  const justifyText = (left: string, right: string, totalWidth: number) => {
-    const availableSpace = totalWidth - left.length - right.length;
-    return left + ' '.repeat(Math.max(1, availableSpace)) + right;
-  };
+  // Untuk kertas kecil (32 karakter)
+  return `${itemName}
+${qtyPrice}
+${' '.repeat(Math.max(0, 32 - totalPrice.length))}${BOLD_ON}${totalPrice}${BOLD_OFF}`;
+}).join('\n\n')}
 
-  // Header toko
-  let receipt_text = INIT + CENTER + DOUBLE_HEIGHT + BOLD_ON;
-  receipt_text += 'TOKO ANJAR' + LINE_FEED;
-  receipt_text += 'FOTOCOPY & ATK' + LINE_FEED;
-  receipt_text += NORMAL_SIZE + BOLD_OFF;
-  receipt_text += makeLine() + LINE_FEED;
-  receipt_text += 'Jl. Raya Gajah - Dempet' + LINE_FEED;
-  receipt_text += '(Depan Koramil Gajah)' + LINE_FEED;
-  receipt_text += 'Telp/WA: 0895630183347' + LINE_FEED;
-  receipt_text += makeLine() + LINE_FEED + LINE_FEED;
+${BOLD_ON}--------------------------------${BOLD_OFF}
+Subtotal: ${' '.repeat(Math.max(0, 15 - `Rp ${formatAmount(receipt.subtotal)}`.length))}${BOLD_ON}Rp ${formatAmount(receipt.subtotal)}${BOLD_OFF}${receipt.discount > 0 ? `
+Diskon: ${' '.repeat(Math.max(0, 17 - `Rp ${formatAmount(receipt.discount)}`.length))}${BOLD_ON}Rp ${formatAmount(receipt.discount)}${BOLD_OFF}` : ''}
+${BOLD_ON}--------------------------------${BOLD_OFF}
+${BOLD_ON}TOTAL: ${' '.repeat(Math.max(0, 18 - `Rp ${formatAmount(receipt.total)}`.length))}Rp ${formatAmount(receipt.total)}${BOLD_OFF}
 
-  // Header struk
-  receipt_text += BOLD_ON + 'STRUK PENJUALAN' + BOLD_OFF + LINE_FEED;
-  receipt_text += makeLine() + LINE_FEED;
-  receipt_text += LEFT;
-  receipt_text += justifyText('Invoice:', receipt.id, paperWidth) + LINE_FEED;
-  receipt_text += justifyText('Tanggal:', formatDate(receipt.timestamp), paperWidth) + LINE_FEED;
-  receipt_text += makeDashedLine() + LINE_FEED;
+Metode: ${BOLD_ON}${receipt.paymentMethod?.toUpperCase() || 'CASH'}${BOLD_OFF}
 
-  // Items
-  receipt.items.forEach(item => {
-    const price = item.finalPrice || item.product.sellPrice;
-    const total = price * item.quantity;
-    const itemName = item.product.name;
+${CENTER}${BOLD_ON}================================${BOLD_OFF}
+${BOLD_ON}TERIMA KASIH ATAS${BOLD_OFF}
+${BOLD_ON}KUNJUNGAN ANDA!${BOLD_OFF}
     
-    // Nama item (bold)
-    receipt_text += BOLD_ON + itemName + BOLD_OFF + LINE_FEED;
-    
-    // Qty x Price = Total
-    const qtyPrice = `${item.quantity} x Rp${formatAmount(price)}`;
-    const totalPrice = `Rp${formatAmount(total)}`;
-    receipt_text += justifyText(qtyPrice, totalPrice, paperWidth) + LINE_FEED;
-    receipt_text += LINE_FEED; // Extra space between items
-  });
+${BOLD_ON}Semoga Hari Anda Menyenangkan${BOLD_OFF}
+${BOLD_ON}================================${BOLD_OFF}
 
-  // Total section
-  receipt_text += makeDashedLine() + LINE_FEED;
-  receipt_text += justifyText('Subtotal:', `Rp${formatAmount(receipt.subtotal)}`, paperWidth) + LINE_FEED;
+${CUT}`;
+};
+
+export const formatMobileA4ThermalReceipt = (receipt: ReceiptType, formatPrice: (price: number) => string): string => {
+  const formatDate = (date: Date) => {
+    return new Intl.DateTimeFormat('id-ID', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(date);
+  };
+
+  // ESC/POS Commands for A4 thermal
+  const ESC = '\x1B';
+  const BOLD_ON = ESC + 'E\x01';
+  const BOLD_OFF = ESC + 'E\x00';
+  const CENTER = ESC + 'a\x01';
+  const LEFT = ESC + 'a\x00';
+  const CUT = '\x1D' + 'V\x42\x00';
+  const DOUBLE_HEIGHT = ESC + '!\x10';
+  const NORMAL_SIZE = ESC + '!\x00';
   
-  if (receipt.discount > 0) {
-    receipt_text += justifyText('Diskon:', `Rp${formatAmount(receipt.discount)}`, paperWidth) + LINE_FEED;
-  }
+  // Format harga untuk A4 thermal (48 karakter lebar)
+  const formatAmount = (amount: number) => {
+    return new Intl.NumberFormat('id-ID').format(amount);
+  };
+
+  const lineWidth = 48; // A4 thermal paper width
+
+  return `${ESC}@${CENTER}${BOLD_ON}${DOUBLE_HEIGHT}================================================${BOLD_OFF}${NORMAL_SIZE}
+${BOLD_ON}${DOUBLE_HEIGHT}      TOKO ANJAR FOTOCOPY & ATK      ${BOLD_OFF}${NORMAL_SIZE}
+${BOLD_ON}${DOUBLE_HEIGHT}================================================${BOLD_OFF}${NORMAL_SIZE}
+${CENTER}Jl. Raya Gajah - Dempet (Depan Koramil Gajah)
+Telp/WA: 0895630183347
+
+${BOLD_ON}================================================${BOLD_OFF}
+${BOLD_ON}${CENTER}           STRUK PENJUALAN           ${BOLD_OFF}
+${BOLD_ON}================================================${BOLD_OFF}
+${LEFT}Invoice: ${BOLD_ON}${receipt.id}${BOLD_OFF}
+Tanggal: ${formatDate(receipt.timestamp)}
+${BOLD_ON}------------------------------------------------${BOLD_OFF}
+
+${receipt.items.map(item => {
+  const price = item.finalPrice || item.product.sellPrice;
+  const total = price * item.quantity;
+  const itemName = item.product.name;
+  const qtyPrice = `${item.quantity} x Rp ${formatAmount(price)}`;
+  const totalPrice = `Rp ${formatAmount(total)}`;
   
-  receipt_text += makeLine() + LINE_FEED;
-  receipt_text += BOLD_ON + justifyText('TOTAL:', `Rp${formatAmount(receipt.total)}`, paperWidth) + BOLD_OFF + LINE_FEED;
-  receipt_text += makeLine() + LINE_FEED + LINE_FEED;
+  // Untuk A4 thermal (48 karakter)
+  const nameSpacing = Math.max(0, lineWidth - itemName.length);
+  const qtyPriceSpacing = Math.max(0, lineWidth - qtyPrice.length - totalPrice.length);
+  
+  return `${itemName}${' '.repeat(nameSpacing)}
+${qtyPrice}${' '.repeat(qtyPriceSpacing)}${BOLD_ON}${totalPrice}${BOLD_OFF}`;
+}).join('\n\n')}
 
-  // Payment method
-  receipt_text += justifyText('Metode:', (receipt.paymentMethod?.toUpperCase() || 'CASH'), paperWidth) + LINE_FEED + LINE_FEED;
+${BOLD_ON}------------------------------------------------${BOLD_OFF}
+Subtotal:${' '.repeat(Math.max(0, lineWidth - 9 - `Rp ${formatAmount(receipt.subtotal)}`.length))}${BOLD_ON}Rp ${formatAmount(receipt.subtotal)}${BOLD_OFF}${receipt.discount > 0 ? `
+Diskon:${' '.repeat(Math.max(0, lineWidth - 7 - `Rp ${formatAmount(receipt.discount)}`.length))}${BOLD_ON}Rp ${formatAmount(receipt.discount)}${BOLD_OFF}` : ''}
+${BOLD_ON}------------------------------------------------${BOLD_OFF}
+${BOLD_ON}${DOUBLE_HEIGHT}TOTAL:${' '.repeat(Math.max(0, (lineWidth/2) - 6 - `Rp ${formatAmount(receipt.total)}`.length))}Rp ${formatAmount(receipt.total)}${BOLD_OFF}${NORMAL_SIZE}
 
-  // Footer
-  receipt_text += CENTER + BOLD_ON;
-  receipt_text += 'TERIMA KASIH' + LINE_FEED;
-  receipt_text += 'ATAS KUNJUNGAN ANDA!' + LINE_FEED + LINE_FEED;
-  receipt_text += BOLD_OFF;
-  receipt_text += 'Semoga Hari Anda' + LINE_FEED;
-  receipt_text += 'Menyenangkan' + LINE_FEED;
-  receipt_text += makeLine() + LINE_FEED + LINE_FEED + LINE_FEED;
+Metode Pembayaran: ${BOLD_ON}${receipt.paymentMethod?.toUpperCase() || 'CASH'}${BOLD_OFF}
 
-  // Cut paper
-  receipt_text += CUT;
+${CENTER}${BOLD_ON}================================================${BOLD_OFF}
+${BOLD_ON}${DOUBLE_HEIGHT}        TERIMA KASIH ATAS        ${BOLD_OFF}${NORMAL_SIZE}
+${BOLD_ON}${DOUBLE_HEIGHT}        KUNJUNGAN ANDA!          ${BOLD_OFF}${NORMAL_SIZE}
 
-  return receipt_text;
+${BOLD_ON}      Semoga Hari Anda Menyenangkan      ${BOLD_OFF}
+${BOLD_ON}================================================${BOLD_OFF}
+
+
+${CUT}`;
 };
 
 export const formatPrintReceipt = (receipt: ReceiptType, formatPrice: (price: number) => string): string => {
   const formatDate = (date: Date) => {
     return new Intl.DateTimeFormat('id-ID', {
       year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
+      month: 'long',
+      day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
     }).format(date);
   };
 
-  // Format harga
+  return `
+      <div style="font-family: -ui-monospace, SFMono-Regular, 'SF Mono', Consolas, 'Liberation Mono', Menlo, monospace; max-width: 380px; margin: 0 auto; padding: 20px; background: white;">
+        <div style="text-align: center; padding-bottom: 16px;">
+          <h2 style="font-size: 20px; font-weight: bold; margin-bottom: 8px;">Toko Anjar Fotocopy & ATK</h2>
+          <p style="font-size: 14px; color: #666; margin-bottom: 4px;">
+            Jl. Raya Gajah - Dempet (depan Koramil Gajah)
+          </p>
+          <p style="font-size: 14px; color: #666; margin-bottom: 0;">
+            Telp/WA : 0895630183347
+          </p>
+        </div>
+
+        <div style="border-top: 1px solid #e5e7eb; margin: 16px 0;"></div>
+
+        <div style="text-center; margin: 16px 0;">
+          <div style="font-family: monospace; font-size: 18px; font-weight: bold; margin-bottom: 8px;">STRUK PENJUALAN</div>
+          <div style="font-size: 14px; color: #666; margin-bottom: 4px;">
+            ${receipt.id}
+          </div>
+          <div style="font-size: 14px; color: #666;">
+            ${formatDate(receipt.timestamp)}
+          </div>
+        </div>
+
+        <div style="border-top: 1px solid #e5e7eb; margin: 16px 0;"></div>
+
+        <div style="margin: 16px 0;">
+          ${receipt.items.map(item => `
+            <div style="display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 8px;">
+              <div style="flex: 1;">
+                <div style="font-weight: 500; margin-bottom: 4px;">${item.product.name}</div>
+                <div style="color: #666; font-size: 12px;">
+                  ${formatPrice(item.finalPrice || item.product.sellPrice)} × ${item.quantity}
+                </div>
+              </div>
+              <div style="font-weight: 500; min-width: 80px; text-align: right;">
+                ${formatPrice((item.finalPrice || item.product.sellPrice) * item.quantity)}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+
+        <div style="border-top: 1px solid #e5e7eb; margin: 16px 0;"></div>
+
+        <div style="font-size: 14px; margin: 4px 0;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+            <span>Subtotal</span>
+            <span>${formatPrice(receipt.subtotal)}</span>
+          </div>
+          ${receipt.discount > 0 ? `
+            <div style="display: flex; justify-content: space-between; color: #dc2626; margin-bottom: 4px;">
+              <span>Diskon</span>
+              <span>-${formatPrice(receipt.discount)}</span>
+            </div>
+          ` : ''}
+          <div style="border-top: 1px solid #e5e7eb; margin: 4px 0;"></div>
+          <div style="display: flex; justify-content: space-between; font-size: 18px; font-weight: bold;">
+            <span>TOTAL</span>
+            <span>${formatPrice(receipt.total)}</span>
+          </div>
+        </div>
+
+        <div style="border-top: 1px solid #e5e7eb; margin: 16px 0;"></div>
+
+        <div style="text-align: center; font-size: 14px; color: #666;">
+          <p style="margin-bottom: 8px;">Terima kasih atas kunjungan Anda!</p>
+          <p style="margin-bottom: 8px;">Semoga Hari Anda Menyenangkan</p>
+          <p style="margin-top: 16px; font-family: monospace;">
+            Kasir: Admin | ${receipt.paymentMethod?.toUpperCase() || 'CASH'}
+          </p>
+        </div>
+      </div>
+    `;
+};
+
+export const formatMobileA4PrintReceipt = (receipt: ReceiptType, formatPrice: (price: number) => string): string => {
+  const formatDate = (date: Date) => {
+    return new Intl.DateTimeFormat('id-ID', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(date);
+  };
+
+  // Format harga tanpa simbol currency karena kita tulis manual
   const formatAmount = (amount: number) => {
     return new Intl.NumberFormat('id-ID').format(amount);
   };
 
   return `
-<!DOCTYPE html>
-<html>
-<head>
-  <title>Struk Penjualan</title>
-  <style>
-    @page {
-      size: A4;
-      margin: 20mm;
-    }
-    
-    @media print {
-      body {
-        margin: 0;
-        padding: 0;
-        font-family: 'Arial', sans-serif;
-        font-size: 16px;
-        line-height: 1.6;
-        color: #000;
-      }
-      
-      .container {
-        max-width: 600px;
-        margin: 0 auto;
-        padding: 40px;
-      }
-    }
-    
-    body {
-      font-family: 'Arial', sans-serif;
-      font-size: 16px;
-      line-height: 1.6;
-      margin: 0;
-      padding: 20px;
-      background: white;
-      color: #000;
-    }
-    
-    .container {
-      max-width: 600px;
-      margin: 0 auto;
-      padding: 40px;
-      border: 2px solid #000;
-    }
-    
-    .center { 
-      text-align: center; 
-      margin-bottom: 20px;
-    }
-    
-    .bold { 
-      font-weight: bold; 
-    }
-    
-    .header-title {
-      font-size: 28px;
-      font-weight: bold;
-      margin-bottom: 10px;
-      text-transform: uppercase;
-    }
-    
-    .header-subtitle {
-      font-size: 24px;
-      font-weight: bold;
-      margin-bottom: 15px;
-    }
-    
-    .address {
-      font-size: 18px;
-      margin-bottom: 30px;
-    }
-    
-    .invoice-title {
-      font-size: 22px;
-      font-weight: bold;
-      margin: 30px 0 20px 0;
-    }
-    
-    .invoice-info {
-      font-size: 18px;
-      margin-bottom: 30px;
-    }
-    
-    .line { 
-      border-top: 2px solid #000; 
-      margin: 20px 0; 
-    }
-    
-    .dashed-line {
-      border-top: 2px dashed #000;
-      margin: 20px 0;
-    }
-    
-    .flex {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 10px;
-      font-size: 18px;
-    }
-    
-    .item-section {
-      margin: 30px 0;
-    }
-    
-    .item-row {
-      margin-bottom: 20px;
-      padding: 10px 0;
-      border-bottom: 1px solid #ccc;
-    }
-    
-    .item-name {
-      font-size: 20px;
-      font-weight: bold;
-      margin-bottom: 5px;
-    }
-    
-    .item-details {
-      font-size: 18px;
-      color: #666;
-    }
-    
-    .item-total {
-      font-size: 20px;
-      font-weight: bold;
-      text-align: right;
-    }
-    
-    .total-section {
-      border-top: 3px solid #000;
-      padding-top: 20px;
-      margin-top: 30px;
-      font-size: 20px;
-    }
-    
-    .grand-total {
-      font-size: 26px;
-      font-weight: bold;
-      margin-top: 15px;
-      padding-top: 15px;
-      border-top: 2px solid #000;
-    }
-    
-    .footer {
-      margin-top: 40px;
-      font-size: 18px;
-    }
-    
-    .thank-you {
-      font-size: 22px;
-      font-weight: bold;
-      margin: 30px 0;
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="center">
-      <div class="header-title">TOKO ANJAR</div>
-      <div class="header-subtitle">FOTOCOPY & ATK</div>
-      
-      <div class="address">
-        Jl. Raya Gajah - Dempet<br>
-        (Depan Koramil Gajah)<br>
-        Telp/WA: 0895630183347
-      </div>
-    </div>
-    
-    <div class="line"></div>
-    
-    <div class="center">
-      <div class="invoice-title">STRUK PENJUALAN</div>
-      
-      <div class="invoice-info">
-        <div class="flex">
-          <span>Invoice:</span>
-          <span class="bold">${receipt.id}</span>
+      <div style="font-family: monospace; width: 100%; max-width: 100%; margin: 0; padding: 20px; box-sizing: border-box;">
+        <div style="text-align: center; margin-bottom: 30px;">
+          <h1 style="font-size: 24px; font-weight: bold; margin-bottom: 10px;">TOKO ANJAR FOTOCOPY & ATK</h1>
+          <p style="font-size: 16px; margin-bottom: 5px;">Jl. Raya Gajah - Dempet (Depan Koramil Gajah)</p>
+          <p style="font-size: 16px; margin-bottom: 0;">Telp/WA: 0895630183347</p>
         </div>
         
-        <div class="flex">
-          <span>Tanggal:</span>
-          <span class="bold">${formatDate(receipt.timestamp)}</span>
+        <div style="text-align: center; margin-bottom: 30px;">
+          <h2 style="font-size: 20px; font-weight: bold; margin-bottom: 10px;">STRUK PENJUALAN</h2>
+          <p style="font-size: 16px; margin-bottom: 5px;">${receipt.id}</p>
+          <p style="font-size: 16px; margin-bottom: 0;">${formatDate(receipt.timestamp)}</p>
         </div>
-      </div>
-    </div>
-    
-    <div class="dashed-line"></div>
-    
-    <div class="item-section">
-      ${receipt.items.map(item => {
-        const price = item.finalPrice || item.product.sellPrice;
-        const total = price * item.quantity;
-        return `
-        <div class="item-row">
-          <div class="item-name">${item.product.name}</div>
-          <div class="flex">
-            <div class="item-details">
-              ${item.quantity} x Rp ${formatAmount(price)}
+        
+        <div style="border-top: 2px solid #000; margin: 30px 0; padding-top: 20px;">
+          ${receipt.items.map(item => `
+            <div style="display: flex; justify-content: space-between; margin-bottom: 15px; align-items: flex-start;">
+              <div style="flex: 1;">
+                <div style="font-weight: bold; font-size: 18px; margin-bottom: 5px;">${item.product.name}</div>
+                <div style="font-size: 14px; color: #666;">Rp ${formatAmount(item.finalPrice || item.product.sellPrice)} × ${item.quantity}</div>
+              </div>
+              <div style="font-weight: bold; font-size: 18px; text-align: right; min-width: 120px;">
+                Rp ${formatAmount((item.finalPrice || item.product.sellPrice) * item.quantity)}
+              </div>
             </div>
-            <div class="item-total">
-              Rp ${formatAmount(total)}
+          `).join('')}
+        </div>
+        
+        <div style="border-top: 2px solid #000; margin: 30px 0; padding-top: 20px;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 16px;">
+            <span>Subtotal:</span>
+            <span style="min-width: 120px; text-align: right;">Rp ${formatAmount(receipt.subtotal)}</span>
+          </div>
+          ${receipt.discount > 0 ? `
+            <div style="display: flex; justify-content: space-between; margin-bottom: 10px; color: #dc2626; font-size: 16px;">
+              <span>Diskon:</span>
+              <span style="min-width: 120px; text-align: right;">-Rp ${formatAmount(receipt.discount)}</span>
             </div>
+          ` : ''}
+          <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 24px; margin-top: 20px; border-top: 2px solid #000; padding-top: 20px;">
+            <span>TOTAL:</span>
+            <span style="min-width: 120px; text-align: right;">Rp ${formatAmount(receipt.total)}</span>
           </div>
         </div>
-        `;
-      }).join('')}
-    </div>
-    
-    <div class="total-section">
-      <div class="flex">
-        <span>Subtotal:</span>
-        <span class="bold">Rp ${formatAmount(receipt.subtotal)}</span>
-      </div>
-      
-      ${receipt.discount > 0 ? `
-      <div class="flex" style="color: #dc2626;">
-        <span>Diskon:</span>
-        <span class="bold">-Rp ${formatAmount(receipt.discount)}</span>
-      </div>
-      ` : ''}
-      
-      <div class="grand-total">
-        <div class="flex">
-          <span>TOTAL:</span>
-          <span>Rp ${formatAmount(receipt.total)}</span>
+        
+        <div style="text-align: center; margin-top: 40px; font-size: 16px;">
+          <p style="margin-bottom: 10px; font-weight: bold;">Terima kasih atas kunjungan Anda!</p>
+          <p style="margin-bottom: 10px; font-weight: bold;">Semoga Hari Anda Menyenangkan</p>
+          <p style="margin-top: 20px; font-size: 14px;">Kasir: Admin | ${receipt.paymentMethod?.toUpperCase() || 'CASH'}</p>
         </div>
       </div>
-    </div>
-    
-    <div class="dashed-line"></div>
-    
-    <div class="footer">
-      <div class="flex">
-        <span>Metode Pembayaran:</span>
-        <span class="bold">${receipt.paymentMethod?.toUpperCase() || 'CASH'}</span>
-      </div>
-    </div>
-    
-    <div class="center thank-you">
-      TERIMA KASIH<br>
-      ATAS KUNJUNGAN ANDA!<br><br>
-      <div style="font-size: 20px;">
-        Semoga Hari Anda Menyenangkan
-      </div>
-    </div>
-  </div>
-</body>
-</html>
     `;
 };
