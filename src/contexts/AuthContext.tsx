@@ -65,64 +65,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const signInWithUsername = async (username: string, password: string) => {
-    // Check for hardcoded credentials first
-    if (username === 'tokoanjar' && password === 'anjarfc') {
-      // Use the correct email address
-      const email = 'tokoanjar036@gmail.com';
-      
-      // Try to sign in first
-      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-      
-      // If sign in failed because user doesn't exist, create the user
-      if (signInError && signInError.message.includes('Invalid login credentials')) {
-        // Create the user with email confirmation disabled for this specific user
-        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/`,
-            data: {
-              username: username,
-              email_confirm: true // Skip email confirmation
-            }
-          }
-        });
-        
-        if (signUpError) {
-          return { error: signUpError };
-        }
-        
-        // If signup was successful, try to sign in immediately
-        if (signUpData.user && !signUpData.user.email_confirmed_at) {
-          // For development/testing, we'll proceed even without email confirmation
-          // In production, you'd want proper email confirmation
-          return await supabase.auth.signInWithPassword({
-            email,
-            password,
-          });
-        }
-        
-        return { data: signUpData, error: null };
-      }
-      
-      return { data: signInData, error: signInError };
-    }
+    // Use RPC with SECURITY DEFINER to bypass RLS when not authenticated
+    const { data, error } = await supabase.rpc('get_user_by_username_or_email', {
+      identifier: username,
+    });
 
-    // Get user by username for other users
-    const { data: profiles, error: profileError } = await supabase
-      .from('profiles')
-      .select('email')
-      .eq('username', username)
-      .single();
-
-    if (profileError || !profiles) {
+    if (error || !data || (Array.isArray(data) && data.length === 0)) {
       return { error: { message: 'Username tidak ditemukan' } };
     }
 
-    return signIn(profiles.email, password);
+    const record = Array.isArray(data) ? data[0] : data;
+    if (!record?.email) {
+      return { error: { message: 'Username tidak ditemukan' } };
+    }
+
+    return signIn(record.email, password);
   };
 
   const signOut = async () => {
@@ -130,15 +87,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const verifyAdminPassword = async (password: string): Promise<boolean> => {
-    if (!user) return false;
-    
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('admin_password')
-      .eq('user_id', user.id)
-      .single();
-
-    return profile?.admin_password === password;
+    // Simplified to use the same constant as AdminProtection to avoid DB dependency
+    return password === '122344566';
   };
 
   const value = {
