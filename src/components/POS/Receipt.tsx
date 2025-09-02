@@ -40,11 +40,37 @@ export const Receipt = ({ receipt, formatPrice, onBack }: ReceiptProps) => {
 
   const handleThermalPrint = async () => {
     try {
-      // Always use browser printing directly
+      // Cek apakah thermal printer sudah terhubung
+      if (hybridThermalPrinter.isConnected()) {
+        const receiptText = formatThermalReceipt(receipt, formatPrice);
+        const printed = await hybridThermalPrinter.print(receiptText);
+        
+        if (printed) {
+          toast.success('Struk berhasil dicetak ke thermal printer!');
+          return;
+        }
+      }
+      
+      // Jika belum terhubung, coba sambungkan dulu
+      const connected = await hybridThermalPrinter.connect();
+      if (connected) {
+        const receiptText = formatThermalReceipt(receipt, formatPrice);
+        const printed = await hybridThermalPrinter.print(receiptText);
+        
+        if (printed) {
+          toast.success('Thermal printer terhubung dan struk berhasil dicetak!');
+          return;
+        }
+      }
+      
+      // Fallback ke browser printing
+      toast.info('Thermal printer tidak tersedia, menggunakan printer browser...');
       handlePrint();
+      
     } catch (error) {
       console.error('Print error:', error);
-      toast.error('Terjadi kesalahan saat mencetak.');
+      toast.error('Thermal printer gagal, menggunakan printer browser...');
+      handlePrint();
     }
   };
 
