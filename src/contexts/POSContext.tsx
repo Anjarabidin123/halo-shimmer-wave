@@ -29,9 +29,8 @@ export const POSProvider = ({ children }: { children: ReactNode }) => {
 
   const addManualReceipt = async (receipt: Receipt) => {
     // Always use Supabase if user is logged in for consistent data
-    if (user && supabasePOS.processTransaction) {
-      // Don't process the transaction - just add the receipt to local state
-      // Manual receipts are already processed, we just need to store them
+    if (user && supabasePOS.addManualReceipt) {
+      await supabasePOS.addManualReceipt(receipt);
       return;
     }
     // Fallback for local storage when not logged in
