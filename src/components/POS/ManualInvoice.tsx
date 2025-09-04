@@ -151,7 +151,7 @@ export const ManualInvoice = ({ onCreateInvoice, formatPrice, receipts, onPrintR
     const year = String(now.getFullYear()).slice(-2);
     const dateStr = `${day}${month}${year}`;
     const counter = receipts.length + 1;
-    const invoiceId = `INV-${counter}${dateStr}`;
+    const invoiceId = `MNL-${counter}${dateStr}`;
 
     // Convert manual items to cart items format
     const cartItems = items.map(item => ({

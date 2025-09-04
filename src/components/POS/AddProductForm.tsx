@@ -29,6 +29,7 @@ export const AddProductForm = ({ onAddProduct, onUpdateProduct, products = [], o
   const [stockQuantity, setStockQuantity] = useState(0);
   const [suggestions, setSuggestions] = useState<Product[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [selectedSuggestionIndex, setSelectedSuggestionIndex] = useState(0);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,8 +86,28 @@ export const AddProductForm = ({ onAddProduct, onUpdateProduct, products = [], o
       ).slice(0, 5);
       setSuggestions(filtered);
       setShowSuggestions(filtered.length > 0);
+      setSelectedSuggestionIndex(0);
     } else {
       setSuggestions([]);
+      setShowSuggestions(false);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (!showSuggestions || suggestions.length === 0) return;
+    
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setSelectedSuggestionIndex(prev => 
+        prev < suggestions.length - 1 ? prev + 1 : prev
+      );
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setSelectedSuggestionIndex(prev => prev > 0 ? prev - 1 : prev);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      selectSuggestion(suggestions[selectedSuggestionIndex]);
+    } else if (e.key === 'Escape') {
       setShowSuggestions(false);
     }
   };
@@ -133,15 +154,20 @@ export const AddProductForm = ({ onAddProduct, onUpdateProduct, products = [], o
                     type="text"
                     value={formData.name}
                     onChange={(e) => handleNameChange(e.target.value)}
+                    onKeyDown={handleKeyDown}
                     placeholder="Masukkan nama produk"
                     required
                   />
                   {showSuggestions && (
                     <div className="absolute z-10 w-full mt-1 bg-background border rounded-md shadow-lg">
-                      {suggestions.map((product) => (
+                      {suggestions.map((product, index) => (
                         <div
                           key={product.id}
-                          className="px-3 py-2 cursor-pointer hover:bg-muted"
+                          className={`px-3 py-2 cursor-pointer ${
+                            index === selectedSuggestionIndex 
+                              ? 'bg-primary text-primary-foreground' 
+                              : 'hover:bg-muted'
+                          }`}
                           onClick={() => selectSuggestion(product)}
                         >
                           <div className="font-medium">{product.name}</div>
@@ -248,15 +274,20 @@ export const AddProductForm = ({ onAddProduct, onUpdateProduct, products = [], o
                     type="text"
                     value={formData.name}
                     onChange={(e) => handleNameChange(e.target.value)}
+                    onKeyDown={handleKeyDown}
                     placeholder="Masukkan nama layanan"
                     required
                   />
                   {showSuggestions && (
                     <div className="absolute z-10 w-full mt-1 bg-background border rounded-md shadow-lg">
-                      {suggestions.map((product) => (
+                      {suggestions.map((product, index) => (
                         <div
                           key={product.id}
-                          className="px-3 py-2 cursor-pointer hover:bg-muted"
+                          className={`px-3 py-2 cursor-pointer ${
+                            index === selectedSuggestionIndex 
+                              ? 'bg-primary text-primary-foreground' 
+                              : 'hover:bg-muted'
+                          }`}
                           onClick={() => selectSuggestion(product)}
                         >
                           <div className="font-medium">{product.name}</div>

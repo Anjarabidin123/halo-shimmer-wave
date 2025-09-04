@@ -89,7 +89,7 @@ export const useSupabasePOS = () => {
       const formattedReceipts: Receipt[] = receiptsData.map(receipt => ({
         id: receipt.id,
         items: receipt.receipt_items.map((item: any) => ({
-          product: {
+          product: item.products ? {
             id: item.products.id,
             name: item.products.name,
             costPrice: Number(item.products.cost_price),
@@ -98,6 +98,15 @@ export const useSupabasePOS = () => {
             barcode: item.products.barcode,
             category: item.products.category,
             isPhotocopy: item.products.is_photocopy
+          } : {
+            id: 'manual',
+            name: item.product_name,
+            costPrice: Number(item.cost_price),
+            sellPrice: Number(item.unit_price),
+            stock: 0,
+            barcode: null,
+            category: null,
+            isPhotocopy: false
           },
           quantity: item.quantity,
           finalPrice: item.final_price ? Number(item.final_price) : undefined
@@ -291,7 +300,7 @@ export const useSupabasePOS = () => {
       const year = String(now.getFullYear()).slice(-2);
       const dateStr = `${day}${month}${year}`;
       const counter = receipts.length + 1;
-      const invoiceNumber = `INV-${counter}${dateStr}`;
+      const invoiceNumber = `MNL-${counter}${dateStr}`;
 
       // Save receipt to database
       const { data: receiptData, error: receiptError } = await supabase
