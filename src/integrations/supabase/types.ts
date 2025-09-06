@@ -128,7 +128,7 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "receipt_items_new_receipt_id_fkey"
+            foreignKeyName: "receipt_items_new_receipt_id_fkey1"
             columns: ["receipt_id"]
             isOneToOne: false
             referencedRelation: "receipts"
