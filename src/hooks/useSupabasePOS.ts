@@ -108,8 +108,7 @@ export const useSupabasePOS = () => {
             category: null,
             isPhotocopy: false
           },
-          quantity: item.quantity,
-          finalPrice: item.final_price ? Number(item.final_price) : undefined
+          quantity: item.quantity
         })),
         subtotal: Number(receipt.subtotal),
         discount: Number(receipt.discount),
@@ -184,17 +183,35 @@ export const useSupabasePOS = () => {
         sum + ((item.finalPrice || item.product.sellPrice) - item.product.costPrice) * item.quantity, 0
       );
 
-      // Create receipt
+      // Generate invoice number
+      const now = new Date();
+      const day = String(now.getDate()).padStart(2, '0');
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const year = String(now.getFullYear()).slice(-2);
+      const dateStr = `${day}${month}${year}`;
+      
+      // Get counter for today's transactions
+      const { data: existingReceipts } = await supabase
+        .from('receipts')
+        .select('id')
+        .like('id', `INV-%${dateStr}`)
+        .order('created_at', { ascending: false });
+      
+      const counter = (existingReceipts?.length || 0) + 1;
+      const invoiceNumber = `INV-${counter}${dateStr}`;
+
+      // Create receipt with invoice number as ID
       const { data: receiptData, error: receiptError } = await supabase
         .from('receipts')
         .insert({
+          id: invoiceNumber,  // Use invoice number as ID
           user_id: user.id,
           subtotal,
           discount,
           total,
           profit,
           payment_method: paymentMethod,
-          invoice_number: `INV-${Date.now()}`
+          invoice_number: invoiceNumber
         })
         .select()
         .single();
@@ -299,13 +316,22 @@ export const useSupabasePOS = () => {
       const month = String(now.getMonth() + 1).padStart(2, '0');
       const year = String(now.getFullYear()).slice(-2);
       const dateStr = `${day}${month}${year}`;
-      const counter = receipts.length + 1;
+      
+      // Get counter for today's manual receipts
+      const { data: existingManualReceipts } = await supabase
+        .from('receipts')
+        .select('id')
+        .like('id', `MNL-%${dateStr}`)
+        .order('created_at', { ascending: false });
+      
+      const counter = (existingManualReceipts?.length || 0) + 1;
       const invoiceNumber = `MNL-${counter}${dateStr}`;
 
       // Save receipt to database
       const { data: receiptData, error: receiptError } = await supabase
         .from('receipts')
         .insert({
+          id: invoiceNumber,  // Use invoice number as ID
           user_id: user.id,
           invoice_number: invoiceNumber,
           subtotal: receipt.subtotal,

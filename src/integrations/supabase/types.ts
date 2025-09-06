@@ -128,14 +128,7 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "receipt_items_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "products"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "receipt_items_receipt_id_fkey"
+            foreignKeyName: "receipt_items_new_receipt_id_fkey"
             columns: ["receipt_id"]
             isOneToOne: false
             referencedRelation: "receipts"
@@ -159,7 +152,7 @@ export type Database = {
         Insert: {
           created_at?: string
           discount?: number
-          id?: string
+          id: string
           invoice_number: string
           payment_method?: string | null
           profit?: number
