@@ -14,85 +14,87 @@ export type Database = {
   }
   public: {
     Tables: {
+      daily_reports: {
+        Row: {
+          created_at: string
+          id: string
+          photocopy_income: number | null
+          report_date: string
+          total_profit: number | null
+          total_sales: number | null
+          total_transactions: number | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          photocopy_income?: number | null
+          report_date: string
+          total_profit?: number | null
+          total_sales?: number | null
+          total_transactions?: number | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          photocopy_income?: number | null
+          report_date?: string
+          total_profit?: number | null
+          total_sales?: number | null
+          total_transactions?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       products: {
         Row: {
           barcode: string | null
-          category: string | null
+          category: string
           cost_price: number
           created_at: string
+          description: string | null
           id: string
-          is_photocopy: boolean | null
+          is_photocopy: boolean
           name: string
+          price: number
           sell_price: number
           stock: number
           updated_at: string
         }
         Insert: {
           barcode?: string | null
-          category?: string | null
+          category: string
           cost_price?: number
           created_at?: string
+          description?: string | null
           id?: string
-          is_photocopy?: boolean | null
+          is_photocopy?: boolean
           name: string
+          price: number
           sell_price?: number
           stock?: number
           updated_at?: string
         }
         Update: {
           barcode?: string | null
-          category?: string | null
+          category?: string
           cost_price?: number
           created_at?: string
+          description?: string | null
           id?: string
-          is_photocopy?: boolean | null
+          is_photocopy?: boolean
           name?: string
+          price?: number
           sell_price?: number
           stock?: number
           updated_at?: string
         }
         Relationships: []
       }
-      profiles: {
-        Row: {
-          created_at: string
-          display_name: string | null
-          email: string | null
-          full_name: string | null
-          id: string
-          is_admin: boolean | null
-          updated_at: string
-          user_id: string
-          username: string | null
-        }
-        Insert: {
-          created_at?: string
-          display_name?: string | null
-          email?: string | null
-          full_name?: string | null
-          id?: string
-          is_admin?: boolean | null
-          updated_at?: string
-          user_id: string
-          username?: string | null
-        }
-        Update: {
-          created_at?: string
-          display_name?: string | null
-          email?: string | null
-          full_name?: string | null
-          id?: string
-          is_admin?: boolean | null
-          updated_at?: string
-          user_id?: string
-          username?: string | null
-        }
-        Relationships: []
-      }
       receipt_items: {
         Row: {
           cost_price: number
-          created_at: string
           id: string
           product_id: string | null
           product_name: string
@@ -103,20 +105,18 @@ export type Database = {
           unit_price: number
         }
         Insert: {
-          cost_price?: number
-          created_at?: string
+          cost_price: number
           id?: string
           product_id?: string | null
           product_name: string
-          profit?: number
-          quantity?: number
+          profit: number
+          quantity: number
           receipt_id: string
-          total_price?: number
-          unit_price?: number
+          total_price: number
+          unit_price: number
         }
         Update: {
           cost_price?: number
-          created_at?: string
           id?: string
           product_id?: string | null
           product_name?: string
@@ -128,7 +128,14 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "receipt_items_new_receipt_id_fkey1"
+            foreignKeyName: "receipt_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "receipt_items_receipt_id_fkey"
             columns: ["receipt_id"]
             isOneToOne: false
             referencedRelation: "receipts"
@@ -141,37 +148,34 @@ export type Database = {
           created_at: string
           discount: number
           id: string
-          invoice_number: string
+          invoice_number: string | null
           payment_method: string | null
           profit: number
           subtotal: number
           total: number
-          updated_at: string
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           created_at?: string
           discount?: number
           id: string
-          invoice_number: string
+          invoice_number?: string | null
           payment_method?: string | null
           profit?: number
           subtotal?: number
           total?: number
-          updated_at?: string
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           created_at?: string
           discount?: number
           id?: string
-          invoice_number?: string
+          invoice_number?: string | null
           payment_method?: string | null
           profit?: number
           subtotal?: number
           total?: number
-          updated_at?: string
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -214,24 +218,90 @@ export type Database = {
         }
         Relationships: []
       }
-      user_roles: {
+      transaction_items: {
         Row: {
-          created_at: string
           id: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
+          price: number
+          product_id: string | null
+          product_name: string
+          quantity: number
+          subtotal: number
+          transaction_id: string
         }
         Insert: {
-          created_at?: string
           id?: string
-          role?: Database["public"]["Enums"]["app_role"]
-          user_id: string
+          price: number
+          product_id?: string | null
+          product_name: string
+          quantity: number
+          subtotal: number
+          transaction_id: string
         }
         Update: {
-          created_at?: string
           id?: string
-          role?: Database["public"]["Enums"]["app_role"]
-          user_id?: string
+          price?: number
+          product_id?: string | null
+          product_name?: string
+          quantity?: number
+          subtotal?: number
+          transaction_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transaction_items_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transaction_items_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transactions: {
+        Row: {
+          cashier_name: string | null
+          discount_amount: number | null
+          discount_percent: number | null
+          final_amount: number
+          id: string
+          is_manual_note: boolean | null
+          notes: string | null
+          payment_method: string
+          total_amount: number
+          transaction_code: string
+          transaction_date: string
+        }
+        Insert: {
+          cashier_name?: string | null
+          discount_amount?: number | null
+          discount_percent?: number | null
+          final_amount: number
+          id?: string
+          is_manual_note?: boolean | null
+          notes?: string | null
+          payment_method: string
+          total_amount: number
+          transaction_code: string
+          transaction_date?: string
+        }
+        Update: {
+          cashier_name?: string | null
+          discount_amount?: number | null
+          discount_percent?: number | null
+          final_amount?: number
+          id?: string
+          is_manual_note?: boolean | null
+          notes?: string | null
+          payment_method?: string
+          total_amount?: number
+          transaction_code?: string
+          transaction_date?: string
         }
         Relationships: []
       }
@@ -240,34 +310,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      generate_invoice_number: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
-      generate_invoice_number_v2: {
-        Args: { is_manual?: boolean; tx_date?: string }
-        Returns: string
-      }
       get_user_by_username_or_email: {
         Args: { identifier: string }
         Returns: {
           email: string
-          full_name: string
-          user_id: string
-          username: string
         }[]
-      }
-      has_role: {
-        Args: {
-          _role: Database["public"]["Enums"]["app_role"]
-          _user_id: string
-        }
-        Returns: boolean
       }
     }
     Enums: {
-      app_role: "admin" | "kasir"
-      product_category: "fotocopy" | "atk" | "pramuka" | "lainnya"
+      [_ in never]: never
     }
     CompositeTypes: {
       [_ in never]: never
@@ -394,9 +445,6 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {
-      app_role: ["admin", "kasir"],
-      product_category: ["fotocopy", "atk", "pramuka", "lainnya"],
-    },
+    Enums: {},
   },
 } as const

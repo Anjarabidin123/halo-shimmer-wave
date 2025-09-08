@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Printer, Copy } from 'lucide-react';
-import { hybridThermalPrinter } from '@/lib/hybrid-thermal-printer';
+import { thermalPrinter } from '@/lib/thermal-printer';
 import { formatThermalReceipt, formatPrintReceipt } from '@/lib/receipt-formatter';
 import { toast } from 'sonner';
 
@@ -20,9 +20,9 @@ export const Receipt = ({ receipt, formatPrice, onBack }: ReceiptProps) => {
   const handleThermalPrint = useCallback(async () => {
     try {
       // Try thermal printing first
-      if (hybridThermalPrinter.isConnected()) {
+      if (thermalPrinter.isConnected()) {
         const receiptText = formatThermalReceipt(receipt, formatPrice);
-        const printed = await hybridThermalPrinter.print(receiptText);
+        const printed = await thermalPrinter.print(receiptText);
         
         if (printed) {
           toast.success('Struk berhasil dicetak ke thermal printer!');
@@ -31,10 +31,10 @@ export const Receipt = ({ receipt, formatPrice, onBack }: ReceiptProps) => {
       }
       
       // Fallback to thermal printer connection attempt
-      const connected = await hybridThermalPrinter.connect();
+      const connected = await thermalPrinter.connect();
       if (connected) {
         const receiptText = formatThermalReceipt(receipt, formatPrice);
-        const printed = await hybridThermalPrinter.print(receiptText);
+        const printed = await thermalPrinter.print(receiptText);
         
         if (printed) {
           toast.success('Thermal printer terhubung dan struk berhasil dicetak!');
@@ -111,7 +111,7 @@ export const Receipt = ({ receipt, formatPrice, onBack }: ReceiptProps) => {
         <CardHeader className="pb-3">
           <div className="flex justify-between items-start">
             <div>
-              <CardTitle>Struk #{receipt.id.slice(0, 8)}</CardTitle>
+              <CardTitle>Struk {receipt.id}</CardTitle>
               <p className="text-sm text-muted-foreground">
                 {receipt.timestamp.toLocaleString('id-ID')}
               </p>
@@ -129,7 +129,7 @@ export const Receipt = ({ receipt, formatPrice, onBack }: ReceiptProps) => {
               Jalan Gajah - Dempet (Depan Koramil)
             </p>
             <p className="text-sm text-muted-foreground">
-              HP: 0858-6800-3638
+              HP: 0895630183347
             </p>
           </div>
 

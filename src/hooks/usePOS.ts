@@ -46,9 +46,8 @@ export const usePOS = () => {
         if (p.id === productId) {
           const updatedProduct = { ...p, ...updates };
           
-          // Handle rim/karton conversions for paper products
-          if (updatedProduct.category === 'Kertas' && updates.stock !== undefined) {
-            // Store stock in rim units for paper
+          // Handle stock updates properly for all categories
+          if (updates.stock !== undefined) {
             updatedProduct.stock = updates.stock;
           }
           
@@ -69,6 +68,24 @@ export const usePOS = () => {
     });
   }, []);
 
+  const deleteProduct = useCallback((productId: string) => {
+    setPosState(prev => {
+      const productToDelete = prev.products.find(p => p.id === productId);
+      if (!productToDelete) return prev;
+
+      return {
+        ...prev,
+        products: prev.products.filter(p => p.id !== productId),
+        cart: prev.cart.filter(item => item.product.id !== productId),
+      };
+    });
+    
+    toast({
+      title: "Produk Dihapus",
+      description: "Produk berhasil dihapus dari inventory",
+    });
+  }, []);
+
   const addToCart = useCallback((product: Product, quantity: number = 1, customPrice?: number) => {
     // Special handling for photocopy
     if (product.isPhotocopy) {
@@ -81,7 +98,7 @@ export const usePOS = () => {
         } else if (quantity >= 400) {
           finalPrice = 275;
         } else if (quantity >= 150) {
-          finalPrice = 285;
+          finalPrice = 290;
         }
       }
 
@@ -188,7 +205,7 @@ export const usePOS = () => {
         } else if (quantity >= 400) {
           newFinalPrice = 275;
         } else if (quantity >= 150) {
-          newFinalPrice = 285;
+          newFinalPrice = 290;
         } else {
           newFinalPrice = cartItem.product.sellPrice;
         }
@@ -238,14 +255,14 @@ export const usePOS = () => {
       return sum + ((sellPrice - costPrice) * item.quantity);
     }, 0);
 
-    // Generate invoice ID with new format: INV-{counter}{DDMMYY}
+    // Generate invoice ID with new format: INV-{counter}({DDMMYY})
     const now = new Date();
     const day = String(now.getDate()).padStart(2, '0');
     const month = String(now.getMonth() + 1).padStart(2, '0');
     const year = String(now.getFullYear()).slice(-2);
     const dateStr = `${day}${month}${year}`;
     const counter = receipts.length + 1;
-    const invoiceId = `INV-${counter}${dateStr}`;
+    const invoiceId = `INV-${counter}(${dateStr})`;
 
     const receipt: Receipt = {
       id: invoiceId,
@@ -309,6 +326,7 @@ export const usePOS = () => {
     ...posState,
     addProduct,
     updateProduct,
+    deleteProduct,
     addToCart,
     removeFromCart,
     updateCartQuantity,

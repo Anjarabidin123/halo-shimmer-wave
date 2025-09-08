@@ -9,8 +9,9 @@ import { Badge } from '@/components/ui/badge';
 import { Plus, Trash2, Receipt as ReceiptIcon, CreditCard, Percent, Printer, Copy, Bluetooth } from 'lucide-react';
 import { Receipt as ReceiptType, Product } from '@/types/pos';
 import { toast } from 'sonner';
-import { hybridThermalPrinter } from '@/lib/hybrid-thermal-printer';
+import { thermalPrinter } from '@/lib/thermal-printer';
 import { formatThermalReceipt } from '@/lib/receipt-formatter';
+import { useBluetoothContext } from '@/contexts/BluetoothContext';
 
 interface ManualItem {
   id: string;
@@ -44,8 +45,7 @@ export const ManualInvoice = ({ onCreateInvoice, formatPrice, receipts, onPrintR
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [discount, setDiscount] = useState(0);
   const [discountType, setDiscountType] = useState<'amount' | 'percent'>('amount');
-  const [isBluetoothConnected, setIsBluetoothConnected] = useState(false);
-  const [isConnecting, setIsConnecting] = useState(false);
+  const { isConnected: isBluetoothConnected } = useBluetoothContext();
 
   const photocopyProducts = products.filter(p => p.isPhotocopy);
 
@@ -151,7 +151,7 @@ export const ManualInvoice = ({ onCreateInvoice, formatPrice, receipts, onPrintR
     const year = String(now.getFullYear()).slice(-2);
     const dateStr = `${day}${month}${year}`;
     const counter = receipts.length + 1;
-    const invoiceId = `MNL-${counter}${dateStr}`;
+    const invoiceId = `MNL-${counter}(${dateStr})`;
 
     // Convert manual items to cart items format
     const cartItems = items.map(item => ({
@@ -168,15 +168,24 @@ export const ManualInvoice = ({ onCreateInvoice, formatPrice, receipts, onPrintR
       finalPrice: item.isPhotocopy ? item.total : (item.unitPrice || 0)
     }));
 
+    // Calculate profit: only non-photocopy items contribute to profit
+    const profit = items.reduce((sum, item) => {
+      if (item.isPhotocopy) {
+        return sum; // Fotocopy tidak masuk ke profit
+      }
+      return sum + item.total;
+    }, 0) - discountAmount;
+
     const receipt: ReceiptType = {
       id: invoiceId,
       items: cartItems,
       subtotal,
       discount: discountAmount,
       total,
-      profit: total, // All manual invoice income is profit since no cost
+      profit: Math.max(0, profit), // Ensure profit is not negative
       timestamp: new Date(),
-      paymentMethod
+      paymentMethod,
+      isManual: true
     };
 
     onCreateInvoice(receipt);
@@ -192,24 +201,7 @@ export const ManualInvoice = ({ onCreateInvoice, formatPrice, receipts, onPrintR
     return receipt;
   };
 
-  const handleConnectBluetooth = async () => {
-    setIsConnecting(true);
-    try {
-      const connected = await hybridThermalPrinter.connect();
-      setIsBluetoothConnected(connected);
-      if (connected) {
-        toast.success('Bluetooth printer berhasil terhubung!');
-      } else {
-        toast.error('Gagal terhubung ke printer Bluetooth');
-      }
-    } catch (error) {
-      console.error('Bluetooth connection error:', error);
-      toast.error('Terjadi kesalahan saat menghubungkan Bluetooth');
-      setIsBluetoothConnected(false);
-    } finally {
-      setIsConnecting(false);
-    }
-  };
+  // Remove the bluetooth connection handler since it's now handled by context
 
   const handlePrintOnly = async () => {
     const receipt = handleCreateInvoice();
@@ -222,7 +214,7 @@ export const ManualInvoice = ({ onCreateInvoice, formatPrice, receipts, onPrintR
 
     try {
       const receiptText = formatThermalReceipt(receipt, formatPrice);
-      const printed = await hybridThermalPrinter.print(receiptText);
+      const printed = await thermalPrinter.print(receiptText);
       
       if (printed) {
         toast.success('Nota berhasil dicetak!');
@@ -241,7 +233,7 @@ export const ManualInvoice = ({ onCreateInvoice, formatPrice, receipts, onPrintR
 
     try {
       // Connect to thermal printer
-      const connected = await hybridThermalPrinter.connect();
+      const connected = await thermalPrinter.connect();
       if (!connected) {
         toast.error('Gagal terhubung ke printer thermal');
         return;
@@ -249,7 +241,7 @@ export const ManualInvoice = ({ onCreateInvoice, formatPrice, receipts, onPrintR
 
       // Format and print receipt
       const receiptText = formatThermalReceipt(receipt, formatPrice);
-      const printed = await hybridThermalPrinter.print(receiptText);
+      const printed = await thermalPrinter.print(receiptText);
       
       if (printed) {
         toast.success('Nota berhasil dicetak!');
@@ -570,20 +562,11 @@ export const ManualInvoice = ({ onCreateInvoice, formatPrice, receipts, onPrintR
                 <Bluetooth className="w-4 h-4" />
                 Bluetooth Printer
               </Label>
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={handleConnectBluetooth}
-                disabled={isConnecting}
-              >
-                <Bluetooth className="w-4 h-4 mr-2" />
-                {isConnecting ? 'Menghubungkan...' : 
-                 isBluetoothConnected ? 'Terhubung' : 'Sambungkan Bluetooth'}
-              </Button>
+              {/* Bluetooth connection status - automatically synced */}
               {isBluetoothConnected && (
                 <div className="text-xs text-green-600 flex items-center gap-1">
                   <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                  Printer siap digunakan
+                  Printer sudah terhubung
                 </div>
               )}
             </div>

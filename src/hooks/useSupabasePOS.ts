@@ -114,8 +114,10 @@ export const useSupabasePOS = () => {
         discount: Number(receipt.discount),
         total: Number(receipt.total),
         profit: Number(receipt.profit),
+        photocopyRevenue: 0, // Legacy field, not used
         timestamp: new Date(receipt.created_at),
-        paymentMethod: receipt.payment_method
+        paymentMethod: receipt.payment_method,
+        isManual: receipt.id.startsWith('MNL-')
       }));
 
       setReceipts(formattedReceipts);
@@ -131,12 +133,13 @@ export const useSupabasePOS = () => {
         .from('products')
         .insert({
           name: productData.name,
+          price: productData.sellPrice, // Keep price for compatibility
           cost_price: productData.costPrice,
           sell_price: productData.sellPrice,
           stock: productData.stock,
           barcode: productData.barcode,
-          category: productData.category,
-          is_photocopy: productData.isPhotocopy
+          category: productData.category || 'General',
+          is_photocopy: productData.isPhotocopy || false
         });
 
       if (error) throw error;
@@ -152,7 +155,10 @@ export const useSupabasePOS = () => {
       const updateData: any = {};
       if (updates.name !== undefined) updateData.name = updates.name;
       if (updates.costPrice !== undefined) updateData.cost_price = updates.costPrice;
-      if (updates.sellPrice !== undefined) updateData.sell_price = updates.sellPrice;
+      if (updates.sellPrice !== undefined) {
+        updateData.sell_price = updates.sellPrice;
+        updateData.price = updates.sellPrice; // Keep price in sync
+      }
       if (updates.stock !== undefined) updateData.stock = updates.stock;
       if (updates.barcode !== undefined) updateData.barcode = updates.barcode;
       if (updates.category !== undefined) updateData.category = updates.category;
@@ -171,6 +177,25 @@ export const useSupabasePOS = () => {
     }
   };
 
+  const deleteProduct = async (productId: string) => {
+    try {
+      const { error } = await supabase
+        .from('products')
+        .delete()
+        .eq('id', productId);
+
+      if (error) throw error;
+      
+      // Also remove from cart if it exists
+      setCart(prev => prev.filter(item => item.product.id !== productId));
+      
+      toast.success('Produk berhasil dihapus');
+    } catch (error) {
+      console.error('Error deleting product:', error);
+      toast.error('Gagal menghapus produk');
+    }
+  };
+
   const processTransaction = async (cart: CartItem[], paymentMethod?: string, discount: number = 0): Promise<Receipt | null> => {
     if (!user || cart.length === 0) return null;
 
@@ -183,48 +208,68 @@ export const useSupabasePOS = () => {
         sum + ((item.finalPrice || item.product.sellPrice) - item.product.costPrice) * item.quantity, 0
       );
 
-      // Generate invoice number
+      // Generate invoice number with retry logic to handle race conditions
       const now = new Date();
       const day = String(now.getDate()).padStart(2, '0');
       const month = String(now.getMonth() + 1).padStart(2, '0');
       const year = String(now.getFullYear()).slice(-2);
       const dateStr = `${day}${month}${year}`;
       
-      // Get counter for today's transactions
-      const { data: existingReceipts } = await supabase
-        .from('receipts')
-        .select('id')
-        .like('id', `INV-%${dateStr}`)
-        .order('created_at', { ascending: false });
-      
-      const counter = (existingReceipts?.length || 0) + 1;
-      const invoiceNumber = `INV-${counter}${dateStr}`;
+      let invoiceNumber: string;
+      let receiptData: any;
+      let receiptError: any;
+      let attempts = 0;
+      const maxAttempts = 5;
 
-      // Create receipt with invoice number as ID
-      const { data: receiptData, error: receiptError } = await supabase
-        .from('receipts')
-        .insert({
-          id: invoiceNumber,  // Use invoice number as ID
-          user_id: user.id,
-          subtotal,
-          discount,
-          total,
-          profit,
-          payment_method: paymentMethod,
-          invoice_number: invoiceNumber
-        })
-        .select()
-        .single();
+      // Retry mechanism for invoice number generation
+      do {
+        attempts++;
+        
+        // Get current milliseconds + attempt number for uniqueness
+        const timestamp = Date.now();
+        const randomSuffix = Math.floor(Math.random() * 100).toString().padStart(2, '0');
+        
+        // Create a more unique invoice number pattern
+        invoiceNumber = `${timestamp.toString().slice(-6)}${dateStr}${randomSuffix}`;
+
+        // Try to create receipt with generated invoice number
+        const result = await supabase
+          .from('receipts')
+          .insert({
+            id: invoiceNumber,
+            user_id: user.id,
+            subtotal,
+            discount,
+            total,
+            profit,
+            payment_method: paymentMethod,
+            invoice_number: invoiceNumber
+          })
+          .select()
+          .single();
+        
+        receiptData = result.data;
+        receiptError = result.error;
+        
+        // If successful, break the loop
+        if (!receiptError) break;
+        
+        // If it's not a duplicate key error, break and handle error
+        if (receiptError.code !== '23505') break;
+        
+        // Wait a bit before retrying
+        await new Promise(resolve => setTimeout(resolve, 50 * attempts));
+      } while (receiptError && receiptError.code === '23505' && attempts < maxAttempts);
 
       if (receiptError) throw receiptError;
 
       // Create receipt items
       const receiptItems = cart.map(item => ({
         receipt_id: receiptData.id,
-        product_id: item.product.id,
+        product_id: item.product.isPhotocopy ? null : item.product.id, // Skip product_id for photocopy services
         product_name: item.product.name,
         quantity: item.quantity,
-        unit_price: item.product.sellPrice,
+        unit_price: item.finalPrice || item.product.sellPrice,
         cost_price: item.product.costPrice,
         total_price: (item.finalPrice || item.product.sellPrice) * item.quantity,
         profit: ((item.finalPrice || item.product.sellPrice) - item.product.costPrice) * item.quantity
@@ -236,10 +281,12 @@ export const useSupabasePOS = () => {
 
       if (itemsError) throw itemsError;
 
-      // Update product stock
+      // Update product stock (skip for photocopy as it's service-based)
       for (const item of cart) {
-        const newStock = item.product.stock - item.quantity;
-        await updateProduct(item.product.id, { stock: newStock });
+        if (!item.product.isPhotocopy) {
+          const newStock = item.product.stock - item.quantity;
+          await updateProduct(item.product.id, { stock: newStock });
+        }
       }
 
       const receipt: Receipt = {
@@ -250,8 +297,12 @@ export const useSupabasePOS = () => {
         total,
         profit,
         timestamp: new Date(receiptData.created_at),
-        paymentMethod
+        paymentMethod,
+        isManual: false
       };
+
+      // Immediately update local state for instant UI update
+      setReceipts(prev => [receipt, ...prev]);
 
       toast.success('Transaksi berhasil disimpan');
       return receipt;
@@ -310,46 +361,64 @@ export const useSupabasePOS = () => {
     if (!user) return;
 
     try {
-      // Generate new invoice number with correct format
+      // Generate manual invoice number with retry logic
       const now = new Date();
       const day = String(now.getDate()).padStart(2, '0');
       const month = String(now.getMonth() + 1).padStart(2, '0');
       const year = String(now.getFullYear()).slice(-2);
       const dateStr = `${day}${month}${year}`;
       
-      // Get counter for today's manual receipts
-      const { data: existingManualReceipts } = await supabase
-        .from('receipts')
-        .select('id')
-        .like('id', `MNL-%${dateStr}`)
-        .order('created_at', { ascending: false });
-      
-      const counter = (existingManualReceipts?.length || 0) + 1;
-      const invoiceNumber = `MNL-${counter}${dateStr}`;
+      let invoiceNumber: string;
+      let receiptData: any;
+      let receiptError: any;
+      let attempts = 0;
+      const maxAttempts = 5;
 
-      // Save receipt to database
-      const { data: receiptData, error: receiptError } = await supabase
-        .from('receipts')
-        .insert({
-          id: invoiceNumber,  // Use invoice number as ID
-          user_id: user.id,
-          invoice_number: invoiceNumber,
-          subtotal: receipt.subtotal,
-          discount: receipt.discount,
-          total: receipt.total,
-          profit: receipt.profit,
-          payment_method: receipt.paymentMethod,
-          created_at: receipt.timestamp.toISOString()
-        })
-        .select()
-        .single();
+      // Retry mechanism for manual invoice number generation
+      do {
+        attempts++;
+        
+        // Generate unique manual invoice number
+        const timestamp = Date.now();
+        const randomSuffix = Math.floor(Math.random() * 100).toString().padStart(2, '0');
+        invoiceNumber = `MNL-${timestamp.toString().slice(-6)}${dateStr}${randomSuffix}`;
+
+        // Try to create receipt with generated invoice number
+        const result = await supabase
+          .from('receipts')
+          .insert({
+            id: invoiceNumber,
+            user_id: user.id,
+            invoice_number: invoiceNumber,
+            subtotal: receipt.subtotal,
+            discount: receipt.discount,
+            total: receipt.total,
+            profit: receipt.profit,
+            payment_method: receipt.paymentMethod,
+            created_at: receipt.timestamp.toISOString()
+          })
+          .select()
+          .single();
+        
+        receiptData = result.data;
+        receiptError = result.error;
+        
+        // If successful, break the loop
+        if (!receiptError) break;
+        
+        // If it's not a duplicate key error, break and handle error
+        if (receiptError.code !== '23505') break;
+        
+        // Wait a bit before retrying
+        await new Promise(resolve => setTimeout(resolve, 50 * attempts));
+      } while (receiptError && receiptError.code === '23505' && attempts < maxAttempts);
 
       if (receiptError) throw receiptError;
 
       // Save receipt items
       const receiptItems = receipt.items.map(item => ({
         receipt_id: receiptData.id,
-        product_id: item.product.id === 'manual' ? null : item.product.id,
+        product_id: (item.product.id === 'manual' || item.product.isPhotocopy) ? null : item.product.id,
         product_name: item.product.name,
         quantity: item.quantity,
         unit_price: item.finalPrice || item.product.sellPrice,
@@ -364,10 +433,22 @@ export const useSupabasePOS = () => {
 
       if (itemsError) throw itemsError;
 
-      toast.success(`Nota manual ${invoiceNumber} berhasil disimpan ke database`);
+      // Immediately update local state for instant UI update
+      const newReceipt: Receipt = {
+        id: receiptData.id,
+        items: receipt.items,
+        subtotal: receipt.subtotal,
+        discount: receipt.discount,
+        total: receipt.total,
+        profit: receipt.profit,
+        timestamp: new Date(receiptData.created_at),
+        paymentMethod: receipt.paymentMethod,
+        isManual: true
+      };
       
-      // Reload receipts to show the new manual receipt
-      await loadReceipts();
+      setReceipts(prev => [newReceipt, ...prev]);
+      
+      toast.success(`Nota manual ${invoiceNumber} berhasil disimpan ke database`);
     } catch (error) {
       console.error('Error saving manual receipt:', error);
       toast.error('Gagal menyimpan nota manual ke database');
@@ -389,6 +470,7 @@ export const useSupabasePOS = () => {
     loading,
     addProduct,
     updateProduct,
+    deleteProduct,
     addToCart,
     updateCartQuantity,
     removeFromCart,

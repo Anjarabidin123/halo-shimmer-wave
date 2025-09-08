@@ -28,11 +28,23 @@ export const ProductGrid = ({ products, onAddToCart, onPhotocopyClick }: Product
   };
 
   const handleAddToCart = (product: Product) => {
-    const quantity = quantities[product.id] || 0;
-    if (quantity > 0) {
-      onAddToCart(product, quantity);
-      setQuantities(prev => ({ ...prev, [product.id]: 0 }));
+    const quantity = quantities[product.id] || 1;
+    onAddToCart(product, quantity);
+    setQuantities(prev => ({ ...prev, [product.id]: 0 }));
+    
+    // Add haptic feedback for mobile
+    if ('vibrate' in navigator) {
+      navigator.vibrate(50);
     }
+    
+    // Import and show toast
+    import('sonner').then(({ toast }) => {
+      toast.success(`${product.name} ditambahkan ke keranjang`, {
+        description: `${quantity} item berhasil ditambahkan`,
+        duration: 2000,
+        position: 'bottom-center',
+      });
+    });
   };
 
   return (
@@ -72,16 +84,12 @@ export const ProductGrid = ({ products, onAddToCart, onPhotocopyClick }: Product
                   </div>
                 )}
                 {product.isPhotocopy && (
-                  <p><p><p><p></p><div className="text-right text-xs text-muted-foreground">
-                    <div>Harga : </div>
-                    <div>150+ = Rp285</div>
-                    <div>400+ = Rp275</div>
-                    <div>1000+ = Rp260</div>
-                  </div></p></p></p>
+                  <div className="text-right text-xs text-muted-foreground">
+                    <div>Layanan Fotocopy</div>
+                    <div>Harga fleksibel</div>
+                  </div>
                 )}
               </div>
-              <p></p>
-              <p></p>
 
               {product.isPhotocopy ? (
                 <Button 
@@ -101,6 +109,7 @@ export const ProductGrid = ({ products, onAddToCart, onPhotocopyClick }: Product
                   <QuantitySelector
                     quantity={quantities[product.id] || 0}
                     productName={product.name}
+                    category={product.category}
                     maxStock={product.stock}
                     onQuantityChange={(quantity) => handleQuantityChange(product.id, quantity)}
                     showUnitSelector={true}
@@ -113,7 +122,7 @@ export const ProductGrid = ({ products, onAddToCart, onPhotocopyClick }: Product
                   />
                   <Button 
                     className="w-full"
-                    disabled={product.stock === 0 || (quantities[product.id] || 0) === 0}
+                    disabled={product.stock === 0}
                     onClick={(e) => {
                       e.stopPropagation();
                       handleAddToCart(product);

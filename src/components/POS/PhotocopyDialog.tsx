@@ -21,9 +21,11 @@ interface PhotocopyDialogProps {
 }
 
 export const PhotocopyDialog = ({ isOpen, onClose, product, onAddToCart }: PhotocopyDialogProps) => {
-  const [quantity, setQuantity] = useState(1);
+  const [quantity, setQuantity] = useState(0);
   const [customPrice, setCustomPrice] = useState('');
   const [useCustomPrice, setUseCustomPrice] = useState(false);
+  const [totalPriceInput, setTotalPriceInput] = useState('');
+  const [useTotalPrice, setUseTotalPrice] = useState(false);
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('id-ID', {
@@ -36,22 +38,32 @@ export const PhotocopyDialog = ({ isOpen, onClose, product, onAddToCart }: Photo
   const getTieredPrice = (qty: number) => {
     if (qty >= 1000) return 260;
     if (qty >= 400) return 275;
-    if (qty >= 150) return 285;
+    if (qty >= 150) return 290;
     return product.sellPrice;
   };
 
-  const finalPrice = useCustomPrice && customPrice ? 
-    parseFloat(customPrice) : getTieredPrice(quantity);
-  const totalPrice = finalPrice * quantity;
+  const finalPrice = useTotalPrice && totalPriceInput ? 
+    parseFloat(totalPriceInput) / quantity :
+    useCustomPrice && customPrice ? 
+      parseFloat(customPrice) : getTieredPrice(quantity);
+  
+  const calculatedTotal = useTotalPrice && totalPriceInput ? 
+    parseFloat(totalPriceInput) : finalPrice * quantity;
 
   const handleSubmit = () => {
-    const priceToUse = useCustomPrice && customPrice ? 
-      parseFloat(customPrice) : getTieredPrice(quantity);
+    if (quantity === 0) return; // Don't allow zero quantity
+    
+    const priceToUse = useTotalPrice && totalPriceInput ? 
+      parseFloat(totalPriceInput) / quantity :
+      useCustomPrice && customPrice ? 
+        parseFloat(customPrice) : getTieredPrice(quantity);
     onAddToCart(product, quantity, priceToUse);
     onClose();
-    setQuantity(1);
+    setQuantity(0);
     setCustomPrice('');
     setUseCustomPrice(false);
+    setTotalPriceInput('');
+    setUseTotalPrice(false);
   };
 
   return (
@@ -63,77 +75,119 @@ export const PhotocopyDialog = ({ isOpen, onClose, product, onAddToCart }: Photo
             Fotocopy A4
           </DialogTitle>
           <DialogDescription>
-            Masukkan jumlah lembar fotocopy dan pilih harga
+            Pilih metode input harga untuk layanan fotocopy
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
-          {/* Quantity Input */}
-          <div>
-            <Label htmlFor="quantity">Jumlah Lembar</Label>
-            <Input
-              id="quantity"
-              type="number"
-              value={quantity}
-              onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
-              placeholder="Masukkan jumlah lembar"
-              min="1"
-              className="text-lg"
-            />
-          </div>
-
-          {/* Tiered Pricing Display */}
-          <Card className="p-4 bg-secondary/20">
-            <h4 className="font-semibold mb-2 flex items-center gap-2">
-              <Calculator className="h-4 w-4" />
-              Harga Otomatis Berdasarkan Quantity
-            </h4>
-            <div className="space-y-2 text-sm">
-              <div className={`flex justify-between p-2 rounded ${quantity < 150 ? 'bg-primary/20 font-semibold' : ''}`}>
-                <span>1 - 149 lembar</span>
-                <span>{formatPrice(product.sellPrice)}</span>
-              </div>
-              <div className={`flex justify-between p-2 rounded ${quantity >= 150 && quantity < 400 ? 'bg-primary/20 font-semibold' : ''}`}>
-                <span>150 - 399 lembar</span>
-                <span>{formatPrice(285)}</span>
-              </div>
-              <div className={`flex justify-between p-2 rounded ${quantity >= 400 && quantity < 1000 ? 'bg-primary/20 font-semibold' : ''}`}>
-                <span>400 - 999 lembar</span>
-                <span>{formatPrice(275)}</span>
-              </div>
-              <div className={`flex justify-between p-2 rounded ${quantity >= 1000 ? 'bg-primary/20 font-semibold' : ''}`}>
-                <span>1000+ lembar</span>
-                <span>{formatPrice(260)}</span>
-              </div>
-            </div>
-          </Card>
-
-          {/* Custom Price Option */}
-          <div className="space-y-2">
+          {/* Input Method Selection */}
+          <div className="space-y-3">
             <div className="flex items-center space-x-2">
               <input
-                type="checkbox"
-                id="useCustomPrice"
-                checked={useCustomPrice}
-                onChange={(e) => setUseCustomPrice(e.target.checked)}
+                type="radio"
+                id="useQuantityMethod"
+                name="inputMethod"
+                checked={!useTotalPrice}
+                onChange={() => setUseTotalPrice(false)}
                 className="rounded border border-input"
               />
-              <Label htmlFor="useCustomPrice" className="text-sm">
-                Gunakan harga custom
+              <Label htmlFor="useQuantityMethod" className="text-sm font-medium">
+                Input berdasarkan jumlah lembar
               </Label>
             </div>
             
-            {useCustomPrice && (
-              <Input
-                type="number"
-                value={customPrice}
-                onChange={(e) => setCustomPrice(e.target.value)}
-                placeholder="Harga per lembar (Rp)"
-                min="0"
-                step="50"
+            <div className="flex items-center space-x-2">
+              <input
+                type="radio"
+                id="useTotalMethod"
+                name="inputMethod"
+                checked={useTotalPrice}
+                onChange={() => setUseTotalPrice(true)}
+                className="rounded border border-input"
               />
-            )}
+              <Label htmlFor="useTotalMethod" className="text-sm font-medium">
+                Input harga total langsung
+              </Label>
+            </div>
           </div>
+
+          {!useTotalPrice ? (
+            <>
+              {/* Quantity Input */}
+              <div>
+                <Label htmlFor="quantity">Jumlah Lembar</Label>
+                <Input
+                  id="quantity"
+                  type="number"
+                  value={quantity || ''}
+                  onChange={(e) => setQuantity(parseInt(e.target.value) || 0)}
+                  placeholder="Masukkan jumlah lembar"
+                  min="0"
+                  className="text-lg"
+                />
+              </div>
+
+              {/* Custom Price Option */}
+              <div className="space-y-2">
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    id="useCustomPrice"
+                    checked={useCustomPrice}
+                    onChange={(e) => setUseCustomPrice(e.target.checked)}
+                    className="rounded border border-input"
+                  />
+                  <Label htmlFor="useCustomPrice" className="text-sm">
+                    Gunakan harga custom per lembar
+                  </Label>
+                </div>
+                
+                {useCustomPrice && (
+                  <Input
+                    type="number"
+                    value={customPrice}
+                    onChange={(e) => setCustomPrice(e.target.value)}
+                    placeholder="Harga per lembar (Rp)"
+                    min="0"
+                    step="50"
+                  />
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              {/* Total Price Input */}
+              <div>
+                <Label htmlFor="totalPrice">Total Harga (Rp)</Label>
+                <Input
+                  id="totalPrice"
+                  type="number"
+                  value={totalPriceInput}
+                  onChange={(e) => setTotalPriceInput(e.target.value)}
+                  placeholder="Masukkan total harga fotocopy"
+                  min="0"
+                  step="1000"
+                  className="text-lg"
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="quantityForTotal">Jumlah Lembar (opsional)</Label>
+                <Input
+                  id="quantityForTotal"
+                  type="number"
+                  value={quantity}
+                  onChange={(e) => setQuantity(parseInt(e.target.value) || 0)}
+                  placeholder="Jumlah lembar untuk referensi"
+                  min="0"
+                  className="text-lg"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Opsional: untuk menghitung harga per lembar
+                </p>
+              </div>
+            </>
+          )}
 
           {/* Summary */}
           <Card className="p-4 bg-primary/10">
@@ -142,14 +196,16 @@ export const PhotocopyDialog = ({ isOpen, onClose, product, onAddToCart }: Photo
                 <span>Quantity:</span>
                 <span className="font-semibold">{quantity} lembar</span>
               </div>
-              <div className="flex justify-between">
-                <span>Harga per lembar:</span>
-                <span className="font-semibold">{formatPrice(finalPrice)}</span>
-              </div>
+              {!useTotalPrice && (
+                <div className="flex justify-between">
+                  <span>Harga per lembar:</span>
+                  <span className="font-semibold">{formatPrice(finalPrice)}</span>
+                </div>
+              )}
               <div className="border-t pt-2">
                 <div className="flex justify-between text-lg font-bold">
                   <span>Total:</span>
-                  <span className="text-primary">{formatPrice(totalPrice)}</span>
+                  <span className="text-primary">{formatPrice(calculatedTotal)}</span>
                 </div>
               </div>
             </div>

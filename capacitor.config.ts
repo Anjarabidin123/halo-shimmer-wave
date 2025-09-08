@@ -1,11 +1,11 @@
 import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'app.lovable.bc79829a70164168911a446c693a79f5',
-  appName: 'kak-ros-hello-world',
+  appId: 'app.lovable.2e18c95d191f4517aba9ef9096017fc0',
+  appName: 'anjarpos5-22',
   webDir: 'dist',
   server: {
-    url: 'https://bc79829a-7016-4168-911a-446c693a79f5.lovableproject.com?forceHideBadge=true',
+    url: 'https://2e18c95d-191f-4517-aba9-ef9096017fc0.lovableproject.com?forceHideBadge=true',
     cleartext: true
   },
   plugins: {

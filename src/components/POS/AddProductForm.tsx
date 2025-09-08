@@ -53,6 +53,12 @@ export const AddProductForm = ({ onAddProduct, onUpdateProduct, products = [], o
       });
     } else {
       // Create new product
+      console.log('AddProductForm Debug - Creating product:', {
+        formData,
+        stockQuantity,
+        isService,
+        finalStock: (formData.isPhotocopy || isService) ? 0 : (stockQuantity || 0)
+      });
       onAddProduct({
         name: formData.name,
         costPrice: parseFloat(formData.costPrice) || 0,
@@ -63,6 +69,7 @@ export const AddProductForm = ({ onAddProduct, onUpdateProduct, products = [], o
       });
     }
 
+    // Reset form
     setFormData({
       name: '',
       costPrice: '',
@@ -73,8 +80,15 @@ export const AddProductForm = ({ onAddProduct, onUpdateProduct, products = [], o
     });
     setStockQuantity(0);
     setIsService(false);
+    setSuggestions([]);
+    setShowSuggestions(false);
     
-    onClose();
+    // Don't auto-close, keep form open for continuous adding
+    // Force a small delay to ensure state updates properly
+    setTimeout(() => {
+      // This will trigger a re-render in components consuming the context
+      setFormData(prev => ({ ...prev }));
+    }, 100);
   };
 
   const handleNameChange = (value: string) => {
@@ -233,7 +247,10 @@ export const AddProductForm = ({ onAddProduct, onUpdateProduct, products = [], o
                     quantity={stockQuantity}
                     productName={formData.name}
                     category={formData.category}
-                    onQuantityChange={setStockQuantity}
+                    onQuantityChange={(newQuantity) => {
+                      console.log('AddProductForm - Stock quantity changed:', { from: stockQuantity, to: newQuantity });
+                      setStockQuantity(newQuantity);
+                    }}
                     showUnitSelector={true}
                   />
                 </div>
@@ -267,37 +284,16 @@ export const AddProductForm = ({ onAddProduct, onUpdateProduct, products = [], o
           <TabsContent value="service">
             <form onSubmit={(e) => { setIsService(true); handleSubmit(e); }} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="relative">
+                <div>
                   <Label htmlFor="serviceName">Nama Layanan *</Label>
                   <Input
                     id="serviceName"
                     type="text"
                     value={formData.name}
-                    onChange={(e) => handleNameChange(e.target.value)}
-                    onKeyDown={handleKeyDown}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                     placeholder="Masukkan nama layanan"
                     required
                   />
-                  {showSuggestions && (
-                    <div className="absolute z-10 w-full mt-1 bg-background border rounded-md shadow-lg">
-                      {suggestions.map((product, index) => (
-                        <div
-                          key={product.id}
-                          className={`px-3 py-2 cursor-pointer ${
-                            index === selectedSuggestionIndex 
-                              ? 'bg-primary text-primary-foreground' 
-                              : 'hover:bg-muted'
-                          }`}
-                          onClick={() => selectSuggestion(product)}
-                        >
-                          <div className="font-medium">{product.name}</div>
-                          <div className="text-sm text-muted-foreground">
-                            Stok: {product.stock} | {product.category}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 </div>
                 
                 <div>

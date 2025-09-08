@@ -7,94 +7,50 @@ import {
   BluetoothConnected, 
   X, 
   Smartphone,
-  Wifi,
-  WifiOff,
-  CheckCircle
+  CheckCircle,
+  AlertTriangle
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { hybridThermalPrinter } from '@/lib/hybrid-thermal-printer';
-
-interface ConnectedDevice {
-  id: string;
-  name: string;
-  platform: string;
-  connectedAt: Date;
-}
+import { useBluetoothContext } from '@/contexts/BluetoothContext';
 
 export const BluetoothManager = () => {
-  const [isConnecting, setIsConnecting] = useState(false);
-  const [connectedDevices, setConnectedDevices] = useState<ConnectedDevice[]>([]);
-  const [isConnected, setIsConnected] = useState(false);
-
-  useEffect(() => {
-    // Check connection status on mount and periodically
-    const checkConnection = () => {
-      const connected = hybridThermalPrinter.isConnected();
-      setIsConnected(connected);
-    };
-
-    checkConnection();
-    const interval = setInterval(checkConnection, 2000);
-
-    return () => clearInterval(interval);
-  }, []);
+  const { isConnected, isConnecting, connect, disconnect } = useBluetoothContext();
 
   const handleConnect = async () => {
-    setIsConnecting(true);
-    
     try {
-      const success = await hybridThermalPrinter.connect();
+      const success = await connect();
       
       if (success) {
-        const platformInfo = hybridThermalPrinter.getPlatformInfo();
-        const deviceName = `Thermal Printer (${platformInfo})`;
-        
-        // Add to connected devices list
-        const newDevice: ConnectedDevice = {
-          id: `device-${Date.now()}`,
-          name: deviceName,
-          platform: platformInfo,
-          connectedAt: new Date()
-        };
-        
-        setConnectedDevices(prev => {
-          // Remove any existing devices with same platform to avoid duplicates
-          const filtered = prev.filter(d => d.platform !== platformInfo);
-          return [...filtered, newDevice];
-        });
-        
-        setIsConnected(true);
-        toast.success(`Berhasil terhubung ke ${deviceName}`);
+        toast.success('Berhasil terhubung ke Thermal Printer');
       } else {
-        toast.error('Gagal terhubung ke thermal printer');
+        toast.error('Koneksi dibatalkan atau printer tidak ditemukan');
       }
     } catch (error: any) {
       console.error('Connection error:', error);
       
-      // Handle user cancellation gracefully
+      // More specific error messages for mobile users
       if (error.message?.includes('User cancelled') || 
-          error.message?.includes('cancel') ||
           error.name === 'NotFoundError') {
         toast.info('Koneksi dibatalkan oleh pengguna');
+      } else if (error.message?.includes('timeout')) {
+        toast.error('Koneksi timeout. Pastikan printer dalam jangkauan dan mode pairing aktif.');
+      } else if (error.message?.includes('GATT_ERROR')) {
+        toast.error('Gagal terhubung ke printer. Coba restart printer dan ulangi koneksi.');
+      } else if (error.message?.includes('Device not found')) {
+        toast.error('Printer tidak ditemukan. Pastikan printer menyala dan dapat ditemukan.');
+      } else if (error.message?.includes('Web Bluetooth tidak didukung')) {
+        toast.error('Web Bluetooth tidak didukung. Gunakan Chrome versi 56+ di Android dan aktifkan flag experimental jika perlu.');
+      } else if (error.message?.includes('characteristic')) {
+        toast.error('Printer tidak kompatibel. Coba printer lain atau restart printer dan HP.');
       } else {
-        toast.error(`Gagal terhubung: ${error.message}`);
+        toast.error(`Gagal terhubung: ${error.message}. Coba restart Chrome dan printer.`);
       }
-    } finally {
-      setIsConnecting(false);
     }
   };
 
-  const handleDisconnect = async (deviceId?: string) => {
+  const handleDisconnect = async () => {
     try {
-      await hybridThermalPrinter.disconnect();
-      
-      if (deviceId) {
-        setConnectedDevices(prev => prev.filter(d => d.id !== deviceId));
-      } else {
-        setConnectedDevices([]);
-      }
-      
-      setIsConnected(false);
+      await disconnect();
       toast.success('Berhasil memutuskan koneksi');
     } catch (error) {
       console.error('Disconnect error:', error);
@@ -147,39 +103,84 @@ export const BluetoothManager = () => {
         <Button
           size="sm"
           variant="outline"
-          onClick={() => handleDisconnect()}
+          onClick={handleDisconnect}
           className="flex items-center gap-1"
         >
           <X className="h-3 w-3" />
           <span className="text-xs hidden sm:inline">Putus</span>
         </Button>
       )}
-
-      {/* Connected Devices Count */}
-      {connectedDevices.length > 0 && (
-        <div className="hidden sm:flex items-center gap-1 text-xs text-muted-foreground">
-          <Smartphone className="h-3 w-3" />
-          <span>{connectedDevices.length} perangkat</span>
-        </div>
-      )}
     </div>
   );
 };
 
-// Device connection indicator component
+export const BluetoothInstructions = () => {
+  const isAndroid = /Android/.test(navigator.userAgent);
+  const isChrome = /Chrome/.test(navigator.userAgent);
+  const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  const androidVersion = navigator.userAgent.match(/Android (\d+(?:\.\d+)?)/);
+  const isOlderAndroid = androidVersion && parseFloat(androidVersion[1]) < 9.0;
+  
+  if (!isAndroid || !isChrome) {
+    return (
+      <Card className="border-amber-200 bg-amber-50">
+        <CardContent className="p-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5" />
+            <div className="space-y-2">
+              <h3 className="font-medium text-amber-900">Persyaratan Bluetooth Web</h3>
+              <div className="text-sm text-amber-800 space-y-1">
+                <p>• Gunakan <strong>Google Chrome versi 56+</strong> di perangkat <strong>Android</strong></p>
+                <p>• Pastikan situs diakses via <strong>HTTPS</strong></p>
+                <p>• Aktifkan Bluetooth di perangkat Android</p>
+                <p>• Berikan izin lokasi jika diminta browser</p>
+                {!isMobile && <p>• Desktop: Web Bluetooth terbatas, gunakan aplikasi mobile</p>}
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className={`${isOlderAndroid ? 'border-orange-200 bg-orange-50' : 'border-blue-200 bg-blue-50'}`}>
+      <CardContent className="p-4">
+        <div className="flex items-start gap-3">
+          <Bluetooth className={`h-5 w-5 ${isOlderAndroid ? 'text-orange-600' : 'text-blue-600'} mt-0.5`} />
+          <div className="space-y-2">
+            <h3 className={`font-medium ${isOlderAndroid ? 'text-orange-900' : 'text-blue-900'}`}>
+              {isOlderAndroid ? 'Panduan Khusus Android Oreo (8.0/8.1)' : 'Panduan Koneksi Bluetooth'}
+            </h3>
+            <div className={`text-sm ${isOlderAndroid ? 'text-orange-800' : 'text-blue-800'} space-y-1`}>
+              {isOlderAndroid ? (
+                <>
+                  <p>• Pastikan Chrome diperbarui ke versi terbaru</p>
+                  <p>• Aktifkan "Experimental Web Platform Features" di chrome://flags</p>
+                  <p>• Berikan izin lokasi saat diminta browser</p>
+                  <p>• Pilih "Accept All Devices" saat mencari printer</p>
+                  <p>• Jika gagal berulang kali, restart Chrome dan coba lagi</p>
+                  <p>• Pastikan printer mendukung Bluetooth Low Energy (BLE)</p>
+                </>
+              ) : (
+                <>
+                  <p>• Pastikan Bluetooth aktif di perangkat Android</p>
+                  <p>• Nyalakan thermal printer dan aktifkan mode pairing</p>
+                  <p>• Klik "Hubungkan" dan pilih printer dari daftar</p>
+                  <p>• Jika gagal, refresh halaman dan coba lagi</p>
+                  <p>• Pastikan printer mendukung Bluetooth LE (Low Energy)</p>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
 export const DeviceConnectionStatus = () => {
-  const [connectedDevices, setConnectedDevices] = useState<ConnectedDevice[]>([]);
-  const [isConnected, setIsConnected] = useState(false);
-
-  useEffect(() => {
-    const checkConnection = () => {
-      setIsConnected(hybridThermalPrinter.isConnected());
-    };
-
-    checkConnection();
-    const interval = setInterval(checkConnection, 3000);
-    return () => clearInterval(interval);
-  }, []);
+  const { isConnected } = useBluetoothContext();
 
   if (!isConnected) return null;
 

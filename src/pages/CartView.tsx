@@ -40,6 +40,10 @@ export const CartView = () => {
     
     const receipt = await processTransaction('cash', 0);
     if (receipt) {
+      toast({
+        title: "Transaksi Berhasil",
+        description: `Invoice ${receipt.id} berhasil dicetak`,
+      });
       printReceipt(receipt);
       clearCart();
       navigate('/');
@@ -58,7 +62,7 @@ export const CartView = () => {
         if (success) {
           toast({
             title: "Berhasil",
-            description: "Nota berhasil dicetak ke thermal printer!",
+            description: `Invoice ${receipt.id} berhasil dicetak ke thermal printer!`,
           });
           clearCart();
           navigate('/');
@@ -225,36 +229,42 @@ export const CartView = () => {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-3 max-h-96 overflow-y-auto">
-                    {receipts.slice(-10).reverse().map((receipt) => (
-                      <div 
-                        key={receipt.id}
-                        className="flex flex-col p-3 bg-secondary/50 rounded border cursor-pointer hover:bg-secondary/70 transition-colors"
-                        onClick={() => navigate('/', { state: { viewReceipt: receipt } })}
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="font-medium text-sm">{receipt.id}</div>
-                          <div className="font-semibold text-sm">
-                            {formatPrice(receipt.total)}
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between text-xs text-muted-foreground">
-                          <span>{receipt.items.length} item</span>
-                          <div className="text-right">
-                            <div>{new Date(receipt.timestamp).toLocaleDateString('id-ID', {
-                              day: '2-digit',
-                              month: '2-digit', 
-                              year: 'numeric'
-                            })}</div>
-                            <div>{new Date(receipt.timestamp).toLocaleTimeString('id-ID', {
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}</div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                   <div className="space-y-3 max-h-96 overflow-y-auto">
+                     {receipts.length === 0 ? (
+                       <div className="text-center py-4 text-muted-foreground text-sm">
+                         Belum ada transaksi
+                       </div>
+                     ) : (
+                       receipts.slice(-10).reverse().map((receipt) => (
+                         <div 
+                           key={receipt.id}
+                           className="flex flex-col p-3 bg-secondary/50 rounded border cursor-pointer hover:bg-secondary/70 transition-colors"
+                           onClick={() => navigate('/', { state: { viewReceipt: receipt } })}
+                         >
+                           <div className="flex items-center justify-between mb-2">
+                             <div className="font-medium text-sm">{receipt.id}</div>
+                             <div className="font-semibold text-sm">
+                               {formatPrice(receipt.total)}
+                             </div>
+                           </div>
+                           <div className="flex items-center justify-between text-xs text-muted-foreground">
+                             <span>{receipt.items.length} item</span>
+                             <div className="text-right">
+                               <div>{new Date(receipt.timestamp).toLocaleDateString('id-ID', {
+                                 day: '2-digit',
+                                 month: '2-digit', 
+                                 year: 'numeric'
+                               })}</div>
+                               <div>{new Date(receipt.timestamp).toLocaleTimeString('id-ID', {
+                                 hour: '2-digit',
+                                 minute: '2-digit'
+                               })}</div>
+                             </div>
+                           </div>
+                         </div>
+                       ))
+                     )}
+                   </div>
                 </CardContent>
               </Card>
             )}

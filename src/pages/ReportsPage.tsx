@@ -69,7 +69,7 @@ export const ReportsPage = () => {
       </div>
 
       <TransactionHistory
-        receipts={receipts}
+        receipts={receipts.filter(receipt => !receipt.isManual && !receipt.id.startsWith('MNL-'))}
         formatPrice={formatPrice}
         onViewReceipt={handleViewReceipt}
         onPrintReceipt={handlePrintReceipt}

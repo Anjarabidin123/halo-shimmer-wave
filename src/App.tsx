@@ -9,6 +9,7 @@ import { ReportsPage } from "./pages/ReportsPage";
 import NotFound from "./pages/NotFound";
 import { POSProvider } from "@/contexts/POSContext";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { BluetoothProvider } from "@/contexts/BluetoothContext";
 import { LoginPage } from "@/components/Auth/LoginPage";
 import { ProtectedRoute } from "@/components/Auth/ProtectedRoute";
 
@@ -22,25 +23,27 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <POSProvider>
-            <Routes>
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/" element={
-                <ProtectedRoute>
-                  <POSInterface />
-                </ProtectedRoute>
-              } />
-              <Route path="/cart" element={
-                <ProtectedRoute>
-                  <CartView />
-                </ProtectedRoute>
-              } />
-              <Route path="/reports" element={
-                <ProtectedRoute>
-                  <ReportsPage />
-                </ProtectedRoute>
-              } />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
+            <BluetoothProvider>
+              <Routes>
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/" element={
+                  <ProtectedRoute>
+                    <POSInterface />
+                  </ProtectedRoute>
+                } />
+                <Route path="/cart" element={
+                  <ProtectedRoute>
+                    <CartView />
+                  </ProtectedRoute>
+                } />
+                <Route path="/reports" element={
+                  <ProtectedRoute>
+                    <ReportsPage />
+                  </ProtectedRoute>
+                } />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </BluetoothProvider>
           </POSProvider>
         </BrowserRouter>
       </TooltipProvider>

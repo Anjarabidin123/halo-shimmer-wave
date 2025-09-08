@@ -37,6 +37,18 @@ export const getUnitDisplay = (quantity: number, productName?: string, category?
     });
 
     // Standard conversions
+    if (quantity >= 10) {
+      const pax = Math.floor(quantity / 10);
+      const remainder = quantity % 10;
+      if (pax >= 1) {
+        conversions.push({
+          unit: 'pax',
+          quantity: pax,
+          display: remainder > 0 ? `${pax} pax + ${remainder} pcs` : `${pax} pax`
+        });
+      }
+    }
+
     if (quantity >= 12) {
       const dozens = Math.floor(quantity / 12);
       const remainder = quantity % 12;
@@ -79,6 +91,8 @@ export const getUnitDisplay = (quantity: number, productName?: string, category?
 
 export const getUnitMultiplier = (unit: string, category?: string): number => {
   switch (unit) {
+    case 'pax':
+      return 10;
     case 'lusin':
       return 12;
     case 'kodi':
@@ -106,6 +120,7 @@ export const getUnitOptions = (productName?: string, category?: string) => {
   // Standard units for other products
   return [
     { value: 'pcs', label: 'Pcs', multiplier: 1 },
+    { value: 'pax', label: 'Pax (10 pcs)', multiplier: 10 },
     { value: 'lusin', label: 'Lusin (12 pcs)', multiplier: 12 },
     { value: 'kodi', label: 'Kodi (20 pcs)', multiplier: 20 },
     { value: 'gros', label: 'Gros (144 pcs)', multiplier: 144 }

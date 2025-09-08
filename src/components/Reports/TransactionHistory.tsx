@@ -9,6 +9,7 @@ import { Receipt, CartItem } from '@/types/pos';
 import { Eye, Printer, Calendar, Clock, Hash, DollarSign, TrendingUp } from 'lucide-react';
 import { format, isAfter, isBefore, startOfDay, endOfDay, isToday, isYesterday } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
+import { formatReceiptForDisplay } from '@/utils/receiptFormatter';
 
 interface TransactionHistoryProps {
   receipts: Receipt[];
@@ -98,12 +99,12 @@ export const TransactionHistory = ({
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-green-100 rounded-lg">
-                <TrendingUp className="h-5 w-5 text-green-600" />
+              <div className="p-2 bg-success/10 rounded-lg">
+                <TrendingUp className="h-5 w-5 text-success" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Total Keuntungan</p>
-                <p className="text-lg font-semibold text-green-600">{formatPrice(totalProfit)}</p>
+                <p className="text-sm text-muted-foreground">Total Profit</p>
+                <p className="text-lg font-semibold">{formatPrice(totalProfit)}</p>
               </div>
             </div>
           </CardContent>
@@ -112,40 +113,37 @@ export const TransactionHistory = ({
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <Hash className="h-5 w-5 text-blue-600" />
+              <div className="p-2 bg-info/10 rounded-lg">
+                <Hash className="h-5 w-5 text-info" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Total Transaksi</p>
-                <p className="text-lg font-semibold text-blue-600">{totalTransactions}</p>
+                <p className="text-sm text-muted-foreground">Jumlah Transaksi</p>
+                <p className="text-lg font-semibold">{totalTransactions}</p>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Filter Section */}
+      {/* Filters */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
-            Filter Riwayat Transaksi
-          </CardTitle>
+          <CardTitle>Filter Transaksi</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <Label htmlFor="search">Cari Transaksi</Label>
               <Input
                 id="search"
-                placeholder="ID, metode pembayaran, atau produk..."
+                placeholder="Cari berdasarkan invoice, produk, atau metode pembayaran..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-
+            
             <div>
-              <Label htmlFor="dateFilter">Filter Tanggal</Label>
+              <Label htmlFor="period">Periode</Label>
               <Select value={selectedDate} onValueChange={setSelectedDate}>
                 <SelectTrigger>
                   <SelectValue placeholder="Pilih periode" />
@@ -199,59 +197,62 @@ export const TransactionHistory = ({
             </div>
           ) : (
             <div className="space-y-3 max-h-96 overflow-y-auto">
-              {filteredReceipts.map((receipt) => (
-                <div 
-                  key={receipt.id} 
-                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
-                >
-                  <div className="flex-1 space-y-1">
-                    <div className="flex items-center gap-3">
-                      <Badge variant="outline" className="text-xs font-mono">
-                        {receipt.id}
-                      </Badge>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Calendar className="h-3 w-3" />
-                        {formatDateOnly(receipt.timestamp)}
-                        <Clock className="h-3 w-3 ml-2" />
-                        {formatTimeOnly(receipt.timestamp)}
+              {filteredReceipts.map((receipt) => {
+                const displayInfo = formatReceiptForDisplay(receipt);
+                return (
+                  <div 
+                    key={receipt.id} 
+                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex-1 space-y-1">
+                      <div className="flex items-center gap-3">
+                        <Badge variant="outline" className="text-xs font-mono">
+                          {displayInfo.displayId}
+                        </Badge>
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Calendar className="h-3 w-3" />
+                          {displayInfo.shortDate}
+                          <Clock className="h-3 w-3 ml-2" />
+                          {displayInfo.shortTime}
+                        </div>
+                      </div>
+                    
+                      <div className="text-sm text-muted-foreground truncate">
+                        {getReceiptItemsText(receipt.items)} ({receipt.items.length} item)
+                      </div>
+                    
+                      <div className="flex items-center gap-4">
+                        <span className="font-semibold">{formatPrice(receipt.total)}</span>
+                        <Badge variant="secondary" className="text-xs">
+                          Profit: {formatPrice(receipt.profit)}
+                        </Badge>
+                        {receipt.paymentMethod && (
+                          <Badge variant="outline" className="text-xs">
+                            {receipt.paymentMethod}
+                          </Badge>
+                        )}
                       </div>
                     </div>
-                    
-                    <div className="text-sm text-muted-foreground truncate">
-                      {getReceiptItemsText(receipt.items)} ({receipt.items.length} item)
-                    </div>
-                    
-                    <div className="flex items-center gap-4">
-                      <span className="font-semibold">{formatPrice(receipt.total)}</span>
-                      <Badge variant="secondary" className="text-xs">
-                        Profit: {formatPrice(receipt.profit)}
-                      </Badge>
-                      {receipt.paymentMethod && (
-                        <Badge variant="outline" className="text-xs">
-                          {receipt.paymentMethod}
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
                   
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => onViewReceipt(receipt)}
-                    >
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => onPrintReceipt(receipt)}
-                    >
-                      <Printer className="h-4 w-4" />
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => onViewReceipt(receipt)}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => onPrintReceipt(receipt)}
+                      >
+                        <Printer className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>

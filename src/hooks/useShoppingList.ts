@@ -23,17 +23,21 @@ export const useShoppingList = () => {
 
   // Load shopping items
   const loadItems = async () => {
-    if (!user) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
     
     try {
       const { data, error } = await supabase
         .from('shopping_items')
         .select('*')
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
 
-      const formattedItems: ShoppingItem[] = data.map(item => ({
+      const formattedItems: ShoppingItem[] = (data || []).map(item => ({
         ...item,
         created_at: new Date(item.created_at),
         updated_at: new Date(item.updated_at)
@@ -50,7 +54,10 @@ export const useShoppingList = () => {
 
   // Real-time subscription
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      setLoading(false);
+      return;
+    }
 
     loadItems();
 
@@ -61,27 +68,28 @@ export const useShoppingList = () => {
         {
           event: '*',
           schema: 'public',
-          table: 'shopping_items'
+          table: 'shopping_items',
+          filter: `user_id=eq.${user.id}`
         },
         (payload) => {
           if (payload.eventType === 'INSERT') {
             const newItem: ShoppingItem = {
               ...payload.new as any,
-              created_at: new Date(payload.new.created_at),
-              updated_at: new Date(payload.new.updated_at)
+              created_at: new Date((payload.new as any).created_at),
+              updated_at: new Date((payload.new as any).updated_at)
             };
             setItems(prev => [newItem, ...prev.filter(item => item.id !== newItem.id)]);
           } else if (payload.eventType === 'UPDATE') {
             const updatedItem: ShoppingItem = {
               ...payload.new as any,
-              created_at: new Date(payload.new.created_at),
-              updated_at: new Date(payload.new.updated_at)
+              created_at: new Date((payload.new as any).created_at),
+              updated_at: new Date((payload.new as any).updated_at)
             };
             setItems(prev => prev.map(item => 
               item.id === updatedItem.id ? updatedItem : item
             ));
           } else if (payload.eventType === 'DELETE') {
-            setItems(prev => prev.filter(item => item.id !== payload.old.id));
+            setItems(prev => prev.filter(item => item.id !== (payload.old as any).id));
           }
         }
       )
@@ -152,6 +160,11 @@ export const useShoppingList = () => {
 
   const clearCompleted = async () => {
     const completedItems = items.filter(item => item.is_completed);
+    
+    if (completedItems.length === 0) {
+      toast.error('Tidak ada item selesai untuk dihapus');
+      return;
+    }
     
     try {
       const { error } = await supabase

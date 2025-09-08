@@ -24,6 +24,7 @@ export interface Receipt {
   profit: number; // Total profit from this transaction
   timestamp: Date;
   paymentMethod?: string;
+  isManual?: boolean; // Mark manual receipts to track separately
 }
 
 export interface POSState {
