@@ -36,8 +36,7 @@ import {
   BarChart3,
   LogOut,
   Settings,
-  RefreshCw,
-  Printer
+  RefreshCw
 } from 'lucide-react';
 import { useLocation, Link } from 'react-router-dom';
 
@@ -216,27 +215,6 @@ export const POSInterface = () => {
     }
   };
 
-  const handleNavbarPrint = async () => {
-    try {
-      const { toast } = await import('sonner');
-      
-      // Determine which receipt to print
-      const receiptToPrint = lastReceipt || selectedReceipt;
-      
-      if (!receiptToPrint) {
-        toast.error('Tidak ada struk yang tersedia untuk dicetak');
-        return;
-      }
-
-      // Use existing thermal print functionality
-      await handlePrintThermal(receiptToPrint);
-    } catch (error) {
-      console.error('Navbar print error:', error);
-      const { toast } = await import('sonner');
-      toast.error('Gagal mencetak struk');
-    }
-  };
-
   const handleBrowserPrint = (receipt: ReceiptType) => {
     const printContent = `
 ===============================
@@ -397,15 +375,6 @@ Profit: ${formatPrice(receipt.profit)}
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={handleNavbarPrint}
-                  className="h-8 w-8 p-0"
-                  disabled={!lastReceipt && !selectedReceipt}
-                >
-                  <Printer className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
                   onClick={handleRefresh}
                   className="h-8 w-8 p-0"
                 >
@@ -436,17 +405,6 @@ Profit: ${formatPrice(receipt.profit)}
                     </span>
                   </div>
                 )}
-                
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleNavbarPrint}
-                  className="flex items-center gap-2"
-                  disabled={!lastReceipt && !selectedReceipt}
-                >
-                  <Printer className="h-4 w-4" />
-                  <span>Print</span>
-                </Button>
                 
                 <Button
                   variant="outline"
